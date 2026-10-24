@@ -20,6 +20,7 @@ from src.database import (
     init_db,
 )
 from src.views.dashboard import render_dashboard_view
+from src.views.file_registry import render_file_registry_view
 from src.views.import_jig import render_import_jig_view
 from src.views.organ_ledger import render_organ_ledger_view
 from src.views.vital_trends import render_vital_trends_view
@@ -96,12 +97,13 @@ with st.sidebar:
 st.title("🏥 パーソナル健康管理システム（Health Management System）")
 st.caption("定期健康診断（時系列血液検査）と精密画像検査の統合管理・次回受診案内システム")
 
-tab_dash, tab_trend, tab_ledger, tab_import = st.tabs(
+tab_dash, tab_trend, tab_ledger, tab_import, tab_files = st.tabs(
     [
-        "📊 総合健康ダッシュボード",
-        "📈 年次血液・健康診断トレンド",
-        "🗂️ 部位別検査カルテ & 検査PDF",
-        "📥 検査結果の取り込み・登録",
+        "ダッシュボード",
+        "トレンド",
+        "部位別所見",
+        "登録",
+        "ファイル一覧",
     ]
 )
 
@@ -116,3 +118,6 @@ with tab_ledger:
 
 with tab_import:
     render_import_jig_view()
+
+with tab_files:
+    render_file_registry_view()

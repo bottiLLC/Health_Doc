@@ -82,7 +82,45 @@ def normalize_metric_name(raw_name: str) -> str:
     return clean_target
 
 
+# 生化学大分類標準化クランプ辞書（表記ゆれ吸収用）
+STANDARD_CATEGORY_NAMES: Final[dict[str, list[str]]] = {
+    "血液学": ["血液学", "血液学検査", "血液一般", "血算", "血液"],
+    "肝機能": ["肝機能", "肝機能検査", "肝・胆", "肝・胆・膵", "肝胆膵", "肝臓"],
+    "糖代謝": ["糖代謝", "糖代謝検査", "糖尿病", "糖質", "血糖"],
+    "脂質": ["脂質", "脂質代謝", "脂質検査"],
+    "腎機能": ["腎機能", "腎機能検査", "腎・尿酸", "腎"],
+    "痛風": ["痛風", "尿酸", "痛風・代謝", "痛風・尿酸"],
+    "身体計測": ["身体計測", "身体測定", "体格", "計測"],
+    "血圧": ["血圧", "血圧測定"],
+    "肺機能": ["肺機能", "呼吸機能", "呼吸器"],
+    "炎症": ["炎症", "免疫・炎症", "血清学", "免疫血清"],
+    "尿検査": ["尿検査", "検尿", "尿・便"],
+}
+
+
+def normalize_category_name(raw_name: str) -> str:
+    """生化学大分類名の表記ゆれをクランプ辞書に基づき標準キーへ正規化。
+
+    Args:
+        raw_name: PDF等から抽出された生のカテゴリ名
+
+    Returns:
+        正規化された標準カテゴリ名（辞書に未登録の場合は前後の空白を除去した生名）
+    """
+    clean_target = raw_name.strip()
+    clean_target_upper = clean_target.upper().replace(" ", "").replace("　", "")
+
+    for standard_name, aliases in STANDARD_CATEGORY_NAMES.items():
+        for alias in aliases:
+            clean_alias = alias.upper().replace(" ", "").replace("　", "")
+            if clean_target_upper == clean_alias or clean_target_upper.startswith(clean_alias):
+                return standard_name
+
+    return clean_target
+
+
 class VitalMetricItem(BaseModel):
+
     """年次健診の単一測定値モデル（Table A: vital_metrics）。"""
 
     category: str = Field(description="検査カテゴリ（例: 肝機能, 脂質, 糖代謝, 身体計測, 血液学, 腎機能, 痛風）")

@@ -73,6 +73,8 @@ def render_vital_trends_view() -> None:
             priority_pairs = [
                 ("肝機能", "ALT"),
                 ("糖代謝", "HbA1c"),
+                ("血液学", "白血球数"),
+                ("血液学", "ヘモグロビン"),
                 ("身体計測", "体重"),
                 ("脂質", "LDLコレステロール"),
                 ("肝機能", "AST"),
@@ -86,6 +88,7 @@ def render_vital_trends_view() -> None:
                 ("腎機能", "クレアチニン"),
                 ("痛風", "尿酸"),
             ]
+
             sorted_pairs = [p for p in priority_pairs if p in metric_pairs] + [
                 p for p in metric_pairs if p not in priority_pairs
             ]

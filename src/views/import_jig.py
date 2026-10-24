@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from backup_manager import run_backup
 from src.config import PDF_DIR, generate_pdf_filename, get_gemini_api_key
 from src.database import (
-    delete_registered_files_cascade,
     fetch_all_registered_files,
     fetch_latest_exam_for_modality_or_region,
     insert_imaging_event,
@@ -29,96 +26,6 @@ from src.models import (
 from src.recall_engine import compute_dynamic_next_due, derive_organ_ledger_update
 
 
-def _render_registered_files_section() -> None:
-    """登録済みファイルの一覧表示およびチェックボックスによる安全な選択削除UI。"""
-    st.markdown("### 📂 登録済み検査原本ファイル一覧")
-    st.caption("現在データベースおよび原本ストレージに登録されているファイルの一覧です。誤って登録したファイルを選択して削除できます。")
-
-    registered_files = fetch_all_registered_files()
-    if not registered_files:
-        st.info("登録済みのファイルはありません。下のアップローダーからPDFを登録してください。")
-        st.divider()
-        return
-
-    # 削除確認状態の管理
-    if "selected_files_to_delete" not in st.session_state:
-        st.session_state["selected_files_to_delete"] = []
-
-    # 選択チェックボックス用のフォーム
-    with st.expander(f"登録済みファイル一覧を表示 ({len(registered_files)} 件)", expanded=True):
-        col_hdr1, col_hdr2, col_hdr3, col_hdr4, col_hdr5, col_hdr6 = st.columns([1, 4, 2, 3, 3, 2])
-        col_hdr1.markdown("**選択**")
-        col_hdr2.markdown("**ファイル名 / 原本**")
-        col_hdr3.markdown("**受診日**")
-        col_hdr4.markdown("**書類種別 / 機関**")
-        col_hdr5.markdown("**取り込み件数**")
-        col_hdr6.markdown("**登録日時**")
-
-        selected_ids: list[int] = []
-        for f_item in registered_files:
-            fid = int(f_item["file_id"])
-            c1, c2, c3, c4, c5, c6 = st.columns([1, 4, 2, 3, 3, 2])
-
-            with c1:
-                is_selected = st.checkbox("", key=f"sel_file_{fid}", label_visibility="collapsed")
-                if is_selected:
-                    selected_ids.append(fid)
-
-            with c2:
-                st.write(f"📄 **{f_item['file_name']}**")
-                file_path = Path(str(f_item["storage_path"]))
-                if file_path.exists():
-                    st.download_button(
-                        label="📥 原本PDF",
-                        data=file_path.read_bytes(),
-                        file_name=file_path.name,
-                        mime="application/pdf",
-                        key=f"dl_reg_{fid}",
-                        type="secondary",
-                    )
-
-            with c3:
-                st.write(f_item["exam_date"] or "-")
-
-            with c4:
-                doc_lbl = "定期健診ドック" if f_item["doc_type"] == "ANNUAL_CHECKUP" else "精密画像検査"
-                st.write(f"{doc_lbl}")
-                st.caption(f_item["clinic_name"])
-
-            with c5:
-                v_cnt = f_item.get("vital_count", 0)
-                q_cnt = f_item.get("qualitative_count", 0)
-                i_cnt = f_item.get("imaging_count", 0)
-                st.write(f"生化学: {v_cnt} | 定性: {q_cnt} | 画像: {i_cnt}")
-
-            with c6:
-                st.caption(f_item["registered_at"][:16])
-
-            st.divider()
-
-        # 削除アクション
-        if selected_ids:
-            st.warning(f"⚠️ {len(selected_ids)} 件のファイルが選択されています。")
-            if st.button("🗑️ 選択したファイルを完全に削除する", type="primary", use_container_width=True):
-                with st.spinner("安全バックアップを作成し、カスケード削除と元帳の再同期を実行中..."):
-                    # 1. 削除直前の自動安全バックアップ
-                    run_backup(app_name="health_cmms_before_delete")
-
-                    # 2. カスケード削除 & 元帳再集約
-                    res = delete_registered_files_cascade(selected_ids)
-
-                    # 3. キャッシュクリアと完了通知
-                    st.cache_data.clear()
-                    st.session_state["registration_success_msg"] = (
-                        f"ファイル {res['files']} 件および紐付く全検査データ"
-                        f"（生化学: {res['vital_metrics']}件, 定性: {res['qualitative_items']}件, "
-                        f"画像: {res['imaging_events']}件）を完全に削除し、カルテ元帳を最新残存状態へ再同期しました。"
-                    )
-                    st.rerun()
-
-    st.divider()
-
-
 def render_import_jig_view() -> None:
     """View 4: 検査結果の自動取り込み・登録。"""
     st.subheader("検査結果の取り込み・登録")
@@ -130,8 +37,9 @@ def render_import_jig_view() -> None:
     if success_msg := st.session_state.pop("registration_success_msg", None):
         st.success(success_msg)
 
-    # 1. 登録済みファイル一覧 & 選択削除セクション
-    _render_registered_files_section()
+    # ファイル一覧タブへの案内
+    st.info("💡 登録済みの検査原本ファイル一覧の確認や削除は「ファイル一覧」タブをご利用ください。")
+
 
     # セッションステートの初期化
     if "uploaded_file_hash" not in st.session_state:

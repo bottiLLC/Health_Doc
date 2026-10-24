@@ -14,6 +14,7 @@ from src.models import (
     QualitativeCheckupItem,
     RegisteredFileRecord,
     VitalMetricItem,
+    normalize_category_name,
     normalize_metric_name,
 )
 
@@ -122,7 +123,7 @@ def get_db_connection(target_path: Path | str | None = None) -> Generator[sqlite
 
 
 def _migrate_db(conn: sqlite3.Connection) -> None:
-    """既存テーブルにfile_idカラムが存在しない場合に自動追加。"""
+    """既存テーブルにfile_idカラムが存在しない場合に自動追加し、大分類名を標準化。"""
     cursor = conn.cursor()
     tables = ["vital_metrics", "imaging_events", "qualitative_checkup_items"]
     for tbl in tables:
@@ -130,6 +131,17 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
         columns = [str(row["name"]) for row in cursor.fetchall()]
         if "file_id" not in columns:
             cursor.execute(f"ALTER TABLE {tbl} ADD COLUMN file_id INTEGER")
+
+    # 既存の生化学大分類名の表記ゆれを一括標準化マイグレーション
+    cursor.execute("SELECT DISTINCT category FROM vital_metrics")
+    categories = [str(row["category"]) for row in cursor.fetchall()]
+    for cat in categories:
+        norm_cat = normalize_category_name(cat)
+        if norm_cat != cat:
+            cursor.execute(
+                "UPDATE vital_metrics SET category = ? WHERE category = ?",
+                (norm_cat, cat),
+            )
     conn.commit()
 
 
@@ -292,11 +304,12 @@ def insert_vital_metrics(
     records: list[tuple[int | None, str, str, str, float, str, float | None, float | None, str | None]] = []
     for item in metrics:
         normalized_name = normalize_metric_name(item.metric_name)
+        normalized_category = normalize_category_name(item.category)
         records.append(
             (
                 file_id,
                 exam_date,
-                item.category,
+                normalized_category,
                 normalized_name,
                 item.val,
                 item.unit,
@@ -393,10 +406,11 @@ def fetch_all_vital_metrics(
     with get_db_connection(target_path) as conn:
         cursor = conn.cursor()
         if category and metric_name:
+            norm_cat = normalize_category_name(category)
             norm_name = normalize_metric_name(metric_name)
             cursor.execute(
                 "SELECT * FROM vital_metrics WHERE category = ? AND metric_name = ? ORDER BY exam_date ASC",
-                (category, norm_name),
+                (norm_cat, norm_name),
             )
         elif metric_name:
             norm_name = normalize_metric_name(metric_name)
@@ -405,10 +419,12 @@ def fetch_all_vital_metrics(
                 (norm_name,),
             )
         elif category:
+            norm_cat = normalize_category_name(category)
             cursor.execute(
                 "SELECT * FROM vital_metrics WHERE category = ? ORDER BY exam_date ASC, record_id ASC",
-                (category,),
+                (norm_cat,),
             )
+
         else:
             cursor.execute("SELECT * FROM vital_metrics ORDER BY exam_date ASC, record_id ASC")
         return [dict(row) for row in cursor.fetchall()]
