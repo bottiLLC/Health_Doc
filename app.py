@@ -12,7 +12,12 @@ import streamlit as st
 
 from backup_manager import get_backup_dir, run_backup, set_backup_dir
 from src.config import DB_PATH, ensure_directories
-from src.database import fetch_all_imaging_events, fetch_all_vital_metrics, init_db
+from src.database import (
+    fetch_all_imaging_events,
+    fetch_all_qualitative_items,
+    fetch_all_vital_metrics,
+    init_db,
+)
 from src.views.dashboard import render_dashboard_view
 from src.views.import_jig import render_import_jig_view
 from src.views.organ_ledger import render_organ_ledger_view
@@ -41,9 +46,11 @@ with st.sidebar:
     # データベース状態表示
     st.subheader("データ管理状況")
     vital_count = len(fetch_all_vital_metrics())
+    qualitative_count = len(fetch_all_qualitative_items())
     imaging_count = len(fetch_all_imaging_events())
     st.write(f"- データベース: **正常稼働** (`{DB_PATH.name}`)")
     st.write(f"- 登録生化学データ: **{vital_count} 件**")
+    st.write(f"- 登録定性・判定項目: **{qualitative_count} 件**")
     st.write(f"- 登録精密画像検査: **{imaging_count} 件**")
 
     # 標準バックアップマネージャー (Python-backup-script 準拠)

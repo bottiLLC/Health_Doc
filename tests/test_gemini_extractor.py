@@ -123,6 +123,24 @@ def test_extract_fallback_raw_text_with_markdown_fence() -> None:
         "ref_max": 5.5,
         "grade": "B"
       }
+    ],
+    "qualitative_items": [
+      {
+        "category": "聴力",
+        "item_name": "1000Hz(右)",
+        "finding": "所見なし",
+        "grade": "A",
+        "details": "",
+        "is_category_summary": false
+      },
+      {
+        "category": "総合判定",
+        "item_name": "総合判定",
+        "finding": "経過観察",
+        "grade": "C",
+        "details": "",
+        "is_category_summary": true
+      }
     ]
   },
   "embedded_imaging_events": []
@@ -143,6 +161,11 @@ def test_extract_fallback_raw_text_with_markdown_fence() -> None:
     assert result.checkup_data is not None
     # Check metric normalization
     assert result.checkup_data.metrics[0].metric_name == "HbA1c"
+    # Check qualitative items
+    assert len(result.checkup_data.qualitative_items) == 2
+    assert result.checkup_data.qualitative_items[0].category == "聴力"
+    assert result.checkup_data.qualitative_items[0].finding == "所見なし"
+    assert result.checkup_data.qualitative_items[1].is_category_summary is True
 
 
 def test_extract_invalid_json_raises_runtime_error() -> None:

@@ -93,12 +93,33 @@ class VitalMetricItem(BaseModel):
     grade: str | None = Field(default=None, description="判定記号（A, B, C, D2など）")
 
 
+class QualitativeCheckupItem(BaseModel):
+    """年次健診の定性所見・判定項目モデル（Table: qualitative_checkup_items）。"""
+
+    category: str = Field(
+        description="大分類カテゴリ（例: 聴力, 眼底, 視力, 尿検査, 便潜血, 心臓, 胸部, 診察, 総合判定）"
+    )
+    item_name: str = Field(
+        description="検査項目名（例: 聴力判定, 1000Hz(右), 眼底所見, Scheie分類, 改変Davis, 尿蛋白, 便潜血1回目, 総合判定）"
+    )
+    finding: str = Field(
+        description="所見・定性結果（例: 所見なし, 網膜症なし, (-), 正常, 今回の診察では異常ありません）"
+    )
+    grade: str | None = Field(default=None, description="判定記号（例: A, B, C, D1, D2, E）")
+    details: str = Field(default="", description="補足説明・付帯情報（例: 矯正 1.0 / 0.9, 心拍数 59 等）")
+    is_category_summary: bool = Field(default=False, description="大分類カテゴリ全体の総合判定レコードか否か")
+
+
 class AnnualCheckupPayload(BaseModel):
     """年次健診レポートのペイロード。"""
 
     exam_date: str = Field(description="検査日 (YYYY-MM-DD形式。和暦の場合は西暦換算)")
     clinic_name: str = Field(description="受診医療機関名")
     metrics: list[VitalMetricItem] = Field(default_factory=list, description="健診メトリクス一覧")
+    qualitative_items: list[QualitativeCheckupItem] = Field(
+        default_factory=list,
+        description="定性検査・所見・判定一覧（聴力、眼底、尿定性、便潜血、診察、総合判定等）",
+    )
 
 
 class ImagingEventPayload(BaseModel):

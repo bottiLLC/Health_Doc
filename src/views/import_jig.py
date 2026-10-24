@@ -8,6 +8,7 @@ import streamlit as st
 from src.config import PDF_DIR, generate_pdf_filename, get_gemini_api_key
 from src.database import (
     insert_imaging_event,
+    insert_qualitative_items,
     insert_vital_metrics,
     upsert_organ_ledger,
 )
@@ -42,6 +43,7 @@ def render_import_jig_view() -> None:
                 counts = load_seed_data()
             st.success(
                 f"登録完了: 生化学検査データ {counts['vital_metrics_count']} 件, "
+                f"定性・判定項目 {counts.get('qualitative_items_count', 0)} 件, "
                 f"精密画像検査 {counts['imaging_events_count']} 件"
             )
             st.rerun()
@@ -110,6 +112,11 @@ def render_import_jig_view() -> None:
                 metrics_df = pd.DataFrame([m.model_dump() for m in cd.metrics])
                 st.dataframe(metrics_df, use_container_width=True, hide_index=True)
 
+                if cd.qualitative_items:
+                    st.markdown(f"#### 2. 定性検査・所見・各科判定データ ({len(cd.qualitative_items)} 件)")
+                    q_df = pd.DataFrame([q.model_dump() for q in cd.qualitative_items])
+                    st.dataframe(q_df, use_container_width=True, hide_index=True)
+
             # B. 単一画像検査データ
             if ext_result.imaging_data:
                 im = ext_result.imaging_data
@@ -154,6 +161,10 @@ def render_import_jig_view() -> None:
 
                     # メトリクス登録
                     insert_vital_metrics(ext_result.checkup_data.metrics, c_date)
+
+                    # 定性検査・所見・判定項目の登録
+                    if ext_result.checkup_data.qualitative_items:
+                        insert_qualitative_items(ext_result.checkup_data.qualitative_items, c_date)
 
                     # 内包画像検査の登録
                     for emb in ext_result.embedded_imaging_events:

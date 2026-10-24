@@ -6,17 +6,22 @@ from pathlib import Path
 from src.config import generate_pdf_filename, sanitize_filename_part
 from src.database import (
     fetch_all_imaging_events,
+    fetch_all_qualitative_items,
     fetch_all_vital_metrics,
+    fetch_distinct_metric_categories,
     fetch_distinct_metric_names,
+    fetch_distinct_qualitative_categories,
     fetch_organ_ledger,
     init_db,
     insert_imaging_event,
+    insert_qualitative_items,
     insert_vital_metrics,
     upsert_organ_ledger,
 )
 from src.models import (
     ImagingEventPayload,
     OrganLedgerItem,
+    QualitativeCheckupItem,
     VitalMetricItem,
     normalize_metric_name,
 )
@@ -173,3 +178,90 @@ def test_database_crud_operations() -> None:
         assert updated_ledger[0]["last_exam_date"] == "2027-04-25"
         assert updated_ledger[0]["current_status"] == "異常なし(CLEAR)"
         assert updated_ledger[0]["next_action_due"] == "2028-04-25"
+
+        # 4. Metric categories & category-metric filtering
+        pairs = fetch_distinct_metric_categories(target_path=test_db)
+        assert set(pairs) == {("肝機能", "ALT"), ("糖代謝", "HbA1c")}
+
+        filtered_pair = fetch_all_vital_metrics(category="肝機能", metric_name="ALT", target_path=test_db)
+        assert len(filtered_pair) == 1
+        assert filtered_pair[0]["val"] == 31.0
+
+        filtered_cat = fetch_all_vital_metrics(category="糖代謝", target_path=test_db)
+        assert len(filtered_cat) == 1
+        assert filtered_cat[0]["metric_name"] == "HbA1c"
+
+
+def test_qualitative_items_crud_operations() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        test_db = Path(tmp_dir) / "test_qualitative.db"
+        init_db(test_db)
+
+        # 空リスト挿入
+        assert insert_qualitative_items([], "2026-04-22", target_path=test_db) == 0
+
+        items = [
+            QualitativeCheckupItem(
+                category="聴力",
+                item_name="1000Hz(右)",
+                finding="所見なし",
+                grade="A",
+            ),
+            QualitativeCheckupItem(
+                category="眼底",
+                item_name="Scheie分類",
+                finding="0/0",
+                grade="A",
+                details="H:0 S:0",
+            ),
+            QualitativeCheckupItem(
+                category="総合判定",
+                item_name="総合判定",
+                finding="経過観察",
+                grade="C",
+                is_category_summary=True,
+            ),
+        ]
+
+        count = insert_qualitative_items(items, "2026-04-22", target_path=test_db)
+        assert count == 3
+
+        # 全件取得
+        all_items = fetch_all_qualitative_items(target_path=test_db)
+        assert len(all_items) == 3
+
+        # is_summary で絞り込み
+        summaries = fetch_all_qualitative_items(is_summary=True, target_path=test_db)
+        assert len(summaries) == 1
+        assert summaries[0]["category"] == "総合判定"
+        assert summaries[0]["grade"] == "C"
+
+        details = fetch_all_qualitative_items(is_summary=False, target_path=test_db)
+        assert len(details) == 2
+
+        # category で絞り込み
+        hearing = fetch_all_qualitative_items(category="聴力", target_path=test_db)
+        assert len(hearing) == 1
+        assert hearing[0]["finding"] == "所見なし"
+
+        # カテゴリ一覧取得
+        cats = fetch_distinct_qualitative_categories(target_path=test_db)
+        assert "聴力" in cats
+        assert "眼底" in cats
+        assert "総合判定" in cats
+
+        # UPSERT（同一キーで再挿入して内容更新確認）
+        updated_items = [
+            QualitativeCheckupItem(
+                category="聴力",
+                item_name="1000Hz(右)",
+                finding="軽度所見あり",
+                grade="B",
+                details="再検推奨",
+            )
+        ]
+        insert_qualitative_items(updated_items, "2026-04-22", target_path=test_db)
+        rechecked_hearing = fetch_all_qualitative_items(category="聴力", target_path=test_db)
+        assert len(rechecked_hearing) == 1
+        assert rechecked_hearing[0]["finding"] == "軽度所見あり"
+        assert rechecked_hearing[0]["grade"] == "B"

@@ -6,10 +6,15 @@ from src.config import ensure_directories
 from src.database import (
     init_db,
     insert_imaging_event,
+    insert_qualitative_items,
     insert_vital_metrics,
     upsert_organ_ledger,
 )
-from src.models import ImagingEventPayload, VitalMetricItem
+from src.models import (
+    ImagingEventPayload,
+    QualitativeCheckupItem,
+    VitalMetricItem,
+)
 from src.recall_engine import compute_dynamic_next_due, derive_organ_ledger_update
 
 
@@ -340,7 +345,347 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
     total_vitals += insert_vital_metrics(vitals_2024, "2024-05-01", target_path)
 
     # -------------------------------------------------------------
-    # 2. 画像・内視鏡精密検査イベント（実機4件 + ドック内包分）
+    # 2. 人間ドック (medock) 3年分定性検査・所見・各科総合判定
+    # -------------------------------------------------------------
+    qualitative_2026 = [
+        # 各科総合判定
+        QualitativeCheckupItem(
+            category="総合判定",
+            item_name="総合判定",
+            finding="経過観察あるいは生活習慣改善を要します",
+            grade="C",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="診察",
+            item_name="診察判定",
+            finding="今回の診察では異常ありません",
+            grade="A",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="身体計測", item_name="身体計測判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="血圧", item_name="血圧判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="視力", item_name="視力判定", finding="経過観察", grade="C", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="眼底", item_name="眼底判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="眼圧", item_name="眼圧判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="聴力", item_name="聴力判定", finding="所見なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="血液学検査", item_name="血液学判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="脂質", item_name="脂質判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="糖代謝", item_name="糖代謝判定", finding="軽度異常", grade="B", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="肝機能", item_name="肝機能判定", finding="軽度異常", grade="B", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="肝炎", item_name="肝炎判定", finding="陰性", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="腎機能", item_name="腎機能判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="痛風", item_name="痛風判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="尿検査", item_name="尿検査判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="免疫・炎症反応",
+            item_name="免疫炎症判定",
+            finding="基準範囲内",
+            grade="A",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="胸部", item_name="胸部判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="肺機能", item_name="肺機能判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="上部消化管", item_name="上部消化管判定", finding="軽度異常", grade="B", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="便潜血", item_name="便潜血判定", finding="陰性", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="腹部", item_name="腹部判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="心臓", item_name="心臓判定", finding="正常", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="頭部", item_name="頭部判定", finding="軽度異常", grade="B", is_category_summary=True
+        ),
+        # 個別詳細所見
+        QualitativeCheckupItem(category="聴力", item_name="1000Hz(右)", finding="所見なし", grade="A"),
+        QualitativeCheckupItem(category="聴力", item_name="4000Hz(右)", finding="所見なし", grade="A"),
+        QualitativeCheckupItem(category="聴力", item_name="1000Hz(左)", finding="所見なし", grade="A"),
+        QualitativeCheckupItem(category="聴力", item_name="4000Hz(左)", finding="所見なし", grade="A"),
+        QualitativeCheckupItem(
+            category="眼底", item_name="Scheie分類", finding="0/0", grade="A", details="H:高血圧性 0 / S:動脈硬化性 0"
+        ),
+        QualitativeCheckupItem(category="眼底", item_name="改変Davis", finding="網膜症なし", grade="A"),
+        QualitativeCheckupItem(category="眼底", item_name="眼底所見", finding="(両)異常なし", grade="A"),
+        QualitativeCheckupItem(
+            category="視力",
+            item_name="矯正視力(右/左)",
+            finding="1.0 / 0.9",
+            grade="C",
+            details="右:1.0, 左:0.9 (視力低下所見あり)",
+        ),
+        QualitativeCheckupItem(category="尿検査", item_name="尿蛋白", finding="(-)", grade="A"),
+        QualitativeCheckupItem(category="尿検査", item_name="尿潜血", finding="(-)", grade="A"),
+        QualitativeCheckupItem(category="便潜血", item_name="便潜血1回目", finding="(-)", grade="A"),
+        QualitativeCheckupItem(category="便潜血", item_name="便潜血2回目", finding="(-)", grade="A"),
+        QualitativeCheckupItem(
+            category="診察", item_name="内科診療", finding="今回の診察では異常ありません", grade="A"
+        ),
+        QualitativeCheckupItem(category="心臓", item_name="心電図", finding="正常", grade="A", details="心拍数: 59"),
+        QualitativeCheckupItem(
+            category="胸部", item_name="胸部X線", finding="異常なし", grade="A", details="X線(デジタル)"
+        ),
+    ]
+
+    qualitative_2025 = [
+        # 各科総合判定
+        QualitativeCheckupItem(
+            category="総合判定",
+            item_name="総合判定",
+            finding="二次検査（精密検査）を要します",
+            grade="D2",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="診察",
+            item_name="診察判定",
+            finding="今回の診察では異常ありません",
+            grade="A",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="身体計測", item_name="身体計測判定", finding="経過観察", grade="C", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="血圧", item_name="血圧判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="視力", item_name="視力判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="眼底", item_name="眼底判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="眼圧", item_name="眼圧判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="聴力", item_name="聴力判定", finding="所見なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="血液学検査", item_name="血液学判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="脂質", item_name="脂質判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="糖代謝", item_name="糖代謝判定", finding="経過観察", grade="C", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="肝機能",
+            item_name="肝機能判定",
+            finding="二次検査（精密検査）を要します",
+            grade="D2",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="肝炎", item_name="肝炎判定", finding="陰性", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="腎機能", item_name="腎機能判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="痛風", item_name="痛風判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="尿検査", item_name="尿検査判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="免疫・炎症反応",
+            item_name="免疫炎症判定",
+            finding="基準範囲内",
+            grade="A",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="胸部", item_name="胸部判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="肺機能", item_name="肺機能判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="上部消化管", item_name="上部消化管判定", finding="軽度異常", grade="B", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="便潜血", item_name="便潜血判定", finding="陰性", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="腹部", item_name="腹部判定", finding="軽度異常", grade="B", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="心臓", item_name="心臓判定", finding="正常", grade="A", is_category_summary=True
+        ),
+        # 個別詳細所見
+        QualitativeCheckupItem(
+            category="聴力", item_name="聴力検査(左右)", finding="1000Hz/4000Hz 所見なし", grade="A"
+        ),
+        QualitativeCheckupItem(
+            category="眼底",
+            item_name="眼底所見",
+            finding="(右)異常なし (左)異常なし",
+            grade="A",
+            details="Scheie: 0/0, Davis: 網膜症なし",
+        ),
+        QualitativeCheckupItem(category="視力", item_name="矯正視力(右/左)", finding="1.0 / 1.0", grade="A"),
+        QualitativeCheckupItem(category="尿検査", item_name="尿蛋白", finding="(-)", grade="A"),
+        QualitativeCheckupItem(category="尿検査", item_name="尿潜血", finding="(-)", grade="A"),
+        QualitativeCheckupItem(category="便潜血", item_name="便潜血(1/2回目)", finding="(-)/(-)", grade="A"),
+        QualitativeCheckupItem(
+            category="診察", item_name="内科診療", finding="今回の診察では異常ありません", grade="A"
+        ),
+        QualitativeCheckupItem(category="心臓", item_name="心電図", finding="正常", grade="A", details="心拍数: 58"),
+        QualitativeCheckupItem(category="胸部", item_name="胸部X線", finding="異常なし", grade="A"),
+    ]
+
+    qualitative_2024 = [
+        # 各科総合判定
+        QualitativeCheckupItem(
+            category="総合判定",
+            item_name="総合判定",
+            finding="経過観察あるいは生活習慣改善を要します",
+            grade="C",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="診察",
+            item_name="診察判定",
+            finding="今回の診察では異常ありません",
+            grade="A",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="身体計測", item_name="身体計測判定", finding="経過観察", grade="C", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="血圧", item_name="血圧判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="視力", item_name="視力判定", finding="経過観察", grade="C", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="眼底", item_name="眼底判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="眼圧", item_name="眼圧判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="聴力", item_name="聴力判定", finding="所見なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="血液学検査", item_name="血液学判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="脂質", item_name="脂質判定", finding="経過観察", grade="C", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="糖代謝", item_name="糖代謝判定", finding="経過観察", grade="C", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="肝機能", item_name="肝機能判定", finding="経過観察", grade="C", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="肝炎", item_name="肝炎判定", finding="陰性", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="腎機能", item_name="腎機能判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="痛風", item_name="痛風判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="尿検査", item_name="尿検査判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="免疫・炎症反応",
+            item_name="免疫炎症判定",
+            finding="基準範囲内",
+            grade="A",
+            is_category_summary=True,
+        ),
+        QualitativeCheckupItem(
+            category="胸部", item_name="胸部判定", finding="異常なし", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="肺機能", item_name="肺機能判定", finding="基準範囲内", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="上部消化管", item_name="上部消化管判定", finding="軽度異常", grade="B", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="便潜血", item_name="便潜血判定", finding="陰性", grade="A", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="腹部", item_name="腹部判定", finding="軽度異常", grade="B", is_category_summary=True
+        ),
+        QualitativeCheckupItem(
+            category="心臓", item_name="心臓判定", finding="正常", grade="A", is_category_summary=True
+        ),
+        # 個別詳細所見
+        QualitativeCheckupItem(
+            category="聴力", item_name="聴力検査(左右)", finding="1000Hz/4000Hz 所見なし", grade="A"
+        ),
+        QualitativeCheckupItem(
+            category="眼底",
+            item_name="眼底所見",
+            finding="(右)異常なし (左)異常なし",
+            grade="A",
+            details="Scheie: 0/0, Davis: 網膜症なし",
+        ),
+        QualitativeCheckupItem(
+            category="視力", item_name="矯正視力(右/左)", finding="1.2 / 0.6", grade="C", details="左眼低下"
+        ),
+        QualitativeCheckupItem(category="尿検査", item_name="尿蛋白", finding="(-)", grade="A"),
+        QualitativeCheckupItem(category="尿検査", item_name="尿潜血", finding="(-)", grade="A"),
+        QualitativeCheckupItem(category="便潜血", item_name="便潜血(1/2回目)", finding="(-)/(-)", grade="A"),
+        QualitativeCheckupItem(
+            category="診察", item_name="内科診療", finding="今回の診察では異常ありません", grade="A"
+        ),
+        QualitativeCheckupItem(category="心臓", item_name="心電図", finding="正常", grade="A", details="心拍数: 53"),
+        QualitativeCheckupItem(category="胸部", item_name="胸部X線", finding="異常なし", grade="A"),
+    ]
+
+    total_qualitative = 0
+    total_qualitative += insert_qualitative_items(qualitative_2026, "2026-04-22", target_path)
+    total_qualitative += insert_qualitative_items(qualitative_2025, "2025-04-30", target_path)
+    total_qualitative += insert_qualitative_items(qualitative_2024, "2024-05-01", target_path)
+
+    # -------------------------------------------------------------
+    # 3. 画像・内視鏡精密検査イベント（実機4件 + ドック内包分）
     # -------------------------------------------------------------
     annual_pdf_path = "data/pdfs/20260422_ANNUAL_medock総合健診クリニック.pdf"
     dwibs_pdf_path = "data/pdfs/20260502_DWIBS_医療法人ONEきくち総合診療クリニック.pdf"
@@ -463,5 +808,6 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
 
     return {
         "vital_metrics_count": total_vitals,
+        "qualitative_items_count": total_qualitative,
         "imaging_events_count": total_events,
     }
