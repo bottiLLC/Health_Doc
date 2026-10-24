@@ -3,6 +3,9 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 from src.database import init_db, insert_qualitative_items, insert_vital_metrics
 from src.models import QualitativeCheckupItem, VitalMetricItem
 from src.views.vital_trends import _format_grade_badge
@@ -19,6 +22,26 @@ def test_format_grade_badge() -> None:
     assert _format_grade_badge("D2") == "D2 🟠"
     assert _format_grade_badge("E") == "E 🔴"
     assert _format_grade_badge("UNKNOWN") == "UNKNOWN"
+
+
+def test_format_grade_badge_edge_cases() -> None:
+    assert _format_grade_badge(float("nan")) == "-"
+    assert _format_grade_badge(np.nan) == "-"
+    assert _format_grade_badge(pd.NA) == "-"
+    assert _format_grade_badge("nan") == "-"
+    assert _format_grade_badge("NaN") == "-"
+    assert _format_grade_badge("None") == "-"
+    assert _format_grade_badge("-") == "-"
+    assert _format_grade_badge("null") == "-"
+    assert _format_grade_badge("   ") == "-"
+    assert _format_grade_badge(" A ") == "A 🟢"
+    assert _format_grade_badge(1.5) == "1.5"
+
+
+def test_format_grade_badge_pandas_series_apply() -> None:
+    s = pd.Series([None, float("nan"), np.nan, "A", "B", "C1", "D2", "E", "未実施"])
+    res = s.apply(_format_grade_badge)
+    assert res.tolist() == ["-", "-", "-", "A 🟢", "B 🔵", "C1 🟡", "D2 🟠", "E 🔴", "未実施"]
 
 
 def test_views_data_integrity() -> None:

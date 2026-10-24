@@ -31,22 +31,25 @@ def _load_qualitative_items(is_summary: bool) -> list[dict[str, Any]]:
     return fetch_all_qualitative_items(is_summary=is_summary)
 
 
-def _format_grade_badge(grade: str | None) -> str:
+def _format_grade_badge(grade: object) -> str:
     """判定記号に視覚的ステータスアイコンを付与。"""
-    if not grade:
+    if grade is None or bool(pd.isna(grade)):
         return "-"
-    g = grade.strip().upper()
+    grade_str = str(grade).strip()
+    if not grade_str or grade_str.lower() in ("nan", "none", "-", "null"):
+        return "-"
+    g = grade_str.upper()
     if g == "A":
-        return f"{grade} 🟢"
+        return f"{grade_str} 🟢"
     if g == "B":
-        return f"{grade} 🔵"
+        return f"{grade_str} 🔵"
     if g.startswith("C"):
-        return f"{grade} 🟡"
+        return f"{grade_str} 🟡"
     if "D" in g:
-        return f"{grade} 🟠"
+        return f"{grade_str} 🟠"
     if g == "E":
-        return f"{grade} 🔴"
-    return grade
+        return f"{grade_str} 🔴"
+    return grade_str
 
 
 def render_vital_trends_view() -> None:
@@ -130,8 +133,8 @@ def render_vital_trends_view() -> None:
                     )
                     st.metric(label="基準値範囲", value=f"{ref_display} {unit_str}")
                 with col3:
-                    grade_val = latest_row["grade"] or "A"
-                    st.metric(label="直近判定グレード", value=_format_grade_badge(str(grade_val)))
+                    grade_val = latest_row["grade"]
+                    st.metric(label="直近判定グレード", value=_format_grade_badge(grade_val))
 
                 st.divider()
 
@@ -254,7 +257,7 @@ def render_vital_trends_view() -> None:
                 for d in dates:
                     row = sum_df[(sum_df["category"] == cat) & (sum_df["exam_date"] == d)]
                     if not row.empty:
-                        g = str(row.iloc[0]["grade"] or "-")
+                        g = row.iloc[0]["grade"]
                         pivot_data[cat][d] = _format_grade_badge(g)
                     else:
                         pivot_data[cat][d] = "-"
