@@ -25,10 +25,7 @@ def render_organ_ledger_view() -> None:
         index=0,
     )
 
-    filtered_events = [
-        ev for ev in events
-        if selected_region == "全部位表示" or ev["target_region"] == selected_region
-    ]
+    filtered_events = [ev for ev in events if selected_region == "全部位表示" or ev["target_region"] == selected_region]
 
     st.write(f"該当レコード: {len(filtered_events)} 件")
     st.divider()

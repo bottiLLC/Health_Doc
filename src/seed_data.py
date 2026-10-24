@@ -29,91 +29,309 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
     # 1. 人間ドック (medock) 3年分時系列生化学メトリクス
     # -------------------------------------------------------------
     vitals_2026 = [
-        VitalMetricItem(category="身体計測", metric_name="身長", val=176.2, unit="cm", ref_min=None, ref_max=None, grade="A"),
-        VitalMetricItem(category="身体計測", metric_name="体重", val=66.7, unit="kg", ref_min=None, ref_max=None, grade="A"),
-        VitalMetricItem(category="身体計測", metric_name="BMI", val=21.5, unit="kg/㎡", ref_min=18.5, ref_max=24.9, grade="A"),
-        VitalMetricItem(category="身体計測", metric_name="腹囲", val=82.0, unit="cm", ref_min=None, ref_max=85.0, grade="A"),
-        VitalMetricItem(category="血圧", metric_name="最高血圧", val=88.0, unit="mmHg", ref_min=None, ref_max=130.0, grade="A"),
-        VitalMetricItem(category="血圧", metric_name="最低血圧", val=59.0, unit="mmHg", ref_min=None, ref_max=85.0, grade="A"),
-        VitalMetricItem(category="視力", metric_name="視力(右)", val=1.0, unit="", ref_min=1.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="視力", metric_name="視力(左)", val=0.9, unit="", ref_min=1.0, ref_max=None, grade="C"),
-        VitalMetricItem(category="眼圧", metric_name="眼圧(右)", val=14.0, unit="mmHg", ref_min=9.0, ref_max=21.9, grade="A"),
-        VitalMetricItem(category="眼圧", metric_name="眼圧(左)", val=13.0, unit="mmHg", ref_min=9.0, ref_max=21.9, grade="A"),
-        VitalMetricItem(category="肺機能", metric_name="肺活量", val=5.23, unit="L", ref_min=None, ref_max=None, grade="A"),
-        VitalMetricItem(category="肺機能", metric_name="%肺活量", val=110.8, unit="%", ref_min=80.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="肺機能", metric_name="1秒量", val=4.59, unit="L", ref_min=None, ref_max=None, grade="A"),
-        VitalMetricItem(category="肺機能", metric_name="1秒率", val=87.8, unit="%", ref_min=70.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="血液学", metric_name="赤血球数", val=439.0, unit="10^4/mm3", ref_min=400.0, ref_max=539.0, grade="A"),
-        VitalMetricItem(category="血液学", metric_name="ヘモグロビン", val=13.7, unit="g/dL", ref_min=13.1, ref_max=16.3, grade="A"),
-        VitalMetricItem(category="血液学", metric_name="ヘマトクリット", val=43.0, unit="%", ref_min=38.5, ref_max=48.9, grade="A"),
-        VitalMetricItem(category="血液学", metric_name="白血球数", val=3500.0, unit="/uL", ref_min=3100.0, ref_max=8499.0, grade="A"),
-        VitalMetricItem(category="血液学", metric_name="血小板数", val=17.3, unit="10^4/mm3", ref_min=14.5, ref_max=32.9, grade="A"),
-        VitalMetricItem(category="血液学", metric_name="MCV", val=97.9, unit="fL", ref_min=83.0, ref_max=102.9, grade="A"),
-        VitalMetricItem(category="血液学", metric_name="MCH", val=31.2, unit="pg", ref_min=27.9, ref_max=34.5, grade="A"),
-        VitalMetricItem(category="血液学", metric_name="MCHC", val=31.9, unit="%", ref_min=31.4, ref_max=35.5, grade="A"),
-        VitalMetricItem(category="炎症", metric_name="CRP", val=0.005, unit="mg/dL", ref_min=None, ref_max=0.30, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="総コレステロール", val=166.0, unit="mg/dL", ref_min=None, ref_max=None, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="HDLコレステロール", val=60.0, unit="mg/dL", ref_min=40.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="LDLコレステロール", val=96.0, unit="mg/dL", ref_min=60.0, ref_max=139.0, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="nonHDL-cho", val=106.0, unit="mg/dL", ref_min=90.0, ref_max=149.0, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="中性脂肪", val=48.0, unit="mg/dL", ref_min=30.0, ref_max=149.0, grade="A"),
-        VitalMetricItem(category="糖代謝", metric_name="空腹時血糖", val=84.0, unit="mg/dL", ref_min=None, ref_max=100.0, grade="A"),
-        VitalMetricItem(category="糖代謝", metric_name="HbA1c", val=5.8, unit="%", ref_min=None, ref_max=5.5, grade="B"),
-        VitalMetricItem(category="肝機能", metric_name="総ビリルビン", val=0.6, unit="mg/dL", ref_min=0.3, ref_max=1.2, grade="A"),
-        VitalMetricItem(category="肝機能", metric_name="AST", val=21.0, unit="U/L", ref_min=None, ref_max=30.0, grade="A"),
-        VitalMetricItem(category="肝機能", metric_name="ALT", val=31.0, unit="U/L", ref_min=None, ref_max=30.0, grade="B"),
-        VitalMetricItem(category="肝機能", metric_name="γ-GTP", val=21.0, unit="U/L", ref_min=None, ref_max=50.0, grade="A"),
-        VitalMetricItem(category="肝機能", metric_name="ALP", val=61.0, unit="U/L", ref_min=38.0, ref_max=113.0, grade="A"),
-        VitalMetricItem(category="肝機能", metric_name="総蛋白", val=7.0, unit="g/dL", ref_min=6.5, ref_max=7.9, grade="A"),
-        VitalMetricItem(category="肝機能", metric_name="アルブミン", val=4.3, unit="g/dL", ref_min=3.9, ref_max=None, grade="A"),
-        VitalMetricItem(category="肝機能", metric_name="CHE", val=294.0, unit="U/L", ref_min=243.0, ref_max=494.0, grade="A"),
-        VitalMetricItem(category="肝機能", metric_name="LDH", val=173.0, unit="U/L", ref_min=124.0, ref_max=222.0, grade="A"),
-        VitalMetricItem(category="腎機能", metric_name="クレアチニン", val=0.80, unit="mg/dL", ref_min=None, ref_max=1.00, grade="A"),
-        VitalMetricItem(category="腎機能", metric_name="尿素窒素", val=14.0, unit="mg/dL", ref_min=8.0, ref_max=22.0, grade="A"),
-        VitalMetricItem(category="腎機能", metric_name="e-GFR", val=85.3, unit="mL/min", ref_min=60.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="痛風", metric_name="尿酸", val=5.0, unit="mg/dL", ref_min=2.1, ref_max=7.0, grade="A"),
+        VitalMetricItem(
+            category="身体計測", metric_name="身長", val=176.2, unit="cm", ref_min=None, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="体重", val=66.7, unit="kg", ref_min=None, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="BMI", val=21.5, unit="kg/㎡", ref_min=18.5, ref_max=24.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="腹囲", val=82.0, unit="cm", ref_min=None, ref_max=85.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="血圧", metric_name="最高血圧", val=88.0, unit="mmHg", ref_min=None, ref_max=130.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="血圧", metric_name="最低血圧", val=59.0, unit="mmHg", ref_min=None, ref_max=85.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="視力", metric_name="視力(右)", val=1.0, unit="", ref_min=1.0, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="視力", metric_name="視力(左)", val=0.9, unit="", ref_min=1.0, ref_max=None, grade="C"
+        ),
+        VitalMetricItem(
+            category="眼圧", metric_name="眼圧(右)", val=14.0, unit="mmHg", ref_min=9.0, ref_max=21.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="眼圧", metric_name="眼圧(左)", val=13.0, unit="mmHg", ref_min=9.0, ref_max=21.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="肺機能", metric_name="肺活量", val=5.23, unit="L", ref_min=None, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="肺機能", metric_name="%肺活量", val=110.8, unit="%", ref_min=80.0, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="肺機能", metric_name="1秒量", val=4.59, unit="L", ref_min=None, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="肺機能", metric_name="1秒率", val=87.8, unit="%", ref_min=70.0, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="血液学",
+            metric_name="赤血球数",
+            val=439.0,
+            unit="10^4/mm3",
+            ref_min=400.0,
+            ref_max=539.0,
+            grade="A",
+        ),
+        VitalMetricItem(
+            category="血液学", metric_name="ヘモグロビン", val=13.7, unit="g/dL", ref_min=13.1, ref_max=16.3, grade="A"
+        ),
+        VitalMetricItem(
+            category="血液学", metric_name="ヘマトクリット", val=43.0, unit="%", ref_min=38.5, ref_max=48.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="血液学", metric_name="白血球数", val=3500.0, unit="/uL", ref_min=3100.0, ref_max=8499.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="血液学", metric_name="血小板数", val=17.3, unit="10^4/mm3", ref_min=14.5, ref_max=32.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="血液学", metric_name="MCV", val=97.9, unit="fL", ref_min=83.0, ref_max=102.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="血液学", metric_name="MCH", val=31.2, unit="pg", ref_min=27.9, ref_max=34.5, grade="A"
+        ),
+        VitalMetricItem(
+            category="血液学", metric_name="MCHC", val=31.9, unit="%", ref_min=31.4, ref_max=35.5, grade="A"
+        ),
+        VitalMetricItem(
+            category="炎症", metric_name="CRP", val=0.005, unit="mg/dL", ref_min=None, ref_max=0.30, grade="A"
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="総コレステロール",
+            val=166.0,
+            unit="mg/dL",
+            ref_min=None,
+            ref_max=None,
+            grade="A",
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="HDLコレステロール",
+            val=60.0,
+            unit="mg/dL",
+            ref_min=40.0,
+            ref_max=None,
+            grade="A",
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="LDLコレステロール",
+            val=96.0,
+            unit="mg/dL",
+            ref_min=60.0,
+            ref_max=139.0,
+            grade="A",
+        ),
+        VitalMetricItem(
+            category="脂質", metric_name="nonHDL-cho", val=106.0, unit="mg/dL", ref_min=90.0, ref_max=149.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="脂質", metric_name="中性脂肪", val=48.0, unit="mg/dL", ref_min=30.0, ref_max=149.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="糖代謝", metric_name="空腹時血糖", val=84.0, unit="mg/dL", ref_min=None, ref_max=100.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="糖代謝", metric_name="HbA1c", val=5.8, unit="%", ref_min=None, ref_max=5.5, grade="B"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="総ビリルビン", val=0.6, unit="mg/dL", ref_min=0.3, ref_max=1.2, grade="A"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="AST", val=21.0, unit="U/L", ref_min=None, ref_max=30.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="ALT", val=31.0, unit="U/L", ref_min=None, ref_max=30.0, grade="B"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="γ-GTP", val=21.0, unit="U/L", ref_min=None, ref_max=50.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="ALP", val=61.0, unit="U/L", ref_min=38.0, ref_max=113.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="総蛋白", val=7.0, unit="g/dL", ref_min=6.5, ref_max=7.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="アルブミン", val=4.3, unit="g/dL", ref_min=3.9, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="CHE", val=294.0, unit="U/L", ref_min=243.0, ref_max=494.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="LDH", val=173.0, unit="U/L", ref_min=124.0, ref_max=222.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="腎機能", metric_name="クレアチニン", val=0.80, unit="mg/dL", ref_min=None, ref_max=1.00, grade="A"
+        ),
+        VitalMetricItem(
+            category="腎機能", metric_name="尿素窒素", val=14.0, unit="mg/dL", ref_min=8.0, ref_max=22.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="腎機能", metric_name="e-GFR", val=85.3, unit="mL/min", ref_min=60.0, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="痛風", metric_name="尿酸", val=5.0, unit="mg/dL", ref_min=2.1, ref_max=7.0, grade="A"
+        ),
     ]
 
     vitals_2025 = [
-        VitalMetricItem(category="身体計測", metric_name="身長", val=176.3, unit="cm", ref_min=None, ref_max=None, grade="A"),
-        VitalMetricItem(category="身体計測", metric_name="体重", val=70.8, unit="kg", ref_min=None, ref_max=None, grade="C"),
-        VitalMetricItem(category="身体計測", metric_name="BMI", val=22.8, unit="kg/㎡", ref_min=18.5, ref_max=24.9, grade="A"),
-        VitalMetricItem(category="身体計測", metric_name="腹囲", val=88.0, unit="cm", ref_min=None, ref_max=85.0, grade="C"),
-        VitalMetricItem(category="血圧", metric_name="最高血圧", val=96.0, unit="mmHg", ref_min=None, ref_max=130.0, grade="A"),
-        VitalMetricItem(category="血圧", metric_name="最低血圧", val=67.0, unit="mmHg", ref_min=None, ref_max=85.0, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="総コレステロール", val=211.0, unit="mg/dL", ref_min=None, ref_max=None, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="HDLコレステロール", val=63.0, unit="mg/dL", ref_min=40.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="LDLコレステロール", val=138.0, unit="mg/dL", ref_min=60.0, ref_max=139.0, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="中性脂肪", val=61.0, unit="mg/dL", ref_min=30.0, ref_max=149.0, grade="A"),
-        VitalMetricItem(category="糖代謝", metric_name="空腹時血糖", val=86.0, unit="mg/dL", ref_min=None, ref_max=100.0, grade="A"),
-        VitalMetricItem(category="糖代謝", metric_name="HbA1c", val=6.1, unit="%", ref_min=None, ref_max=5.5, grade="C"),
-        VitalMetricItem(category="肝機能", metric_name="AST", val=32.0, unit="U/L", ref_min=None, ref_max=30.0, grade="B"),
-        VitalMetricItem(category="肝機能", metric_name="ALT", val=61.0, unit="U/L", ref_min=None, ref_max=30.0, grade="D2"),
-        VitalMetricItem(category="肝機能", metric_name="γ-GTP", val=43.0, unit="U/L", ref_min=None, ref_max=50.0, grade="A"),
-        VitalMetricItem(category="腎機能", metric_name="クレアチニン", val=0.84, unit="mg/dL", ref_min=None, ref_max=1.00, grade="A"),
-        VitalMetricItem(category="腎機能", metric_name="e-GFR", val=81.4, unit="mL/min", ref_min=60.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="痛風", metric_name="尿酸", val=5.4, unit="mg/dL", ref_min=2.1, ref_max=7.0, grade="A"),
+        VitalMetricItem(
+            category="身体計測", metric_name="身長", val=176.3, unit="cm", ref_min=None, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="体重", val=70.8, unit="kg", ref_min=None, ref_max=None, grade="C"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="BMI", val=22.8, unit="kg/㎡", ref_min=18.5, ref_max=24.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="腹囲", val=88.0, unit="cm", ref_min=None, ref_max=85.0, grade="C"
+        ),
+        VitalMetricItem(
+            category="血圧", metric_name="最高血圧", val=96.0, unit="mmHg", ref_min=None, ref_max=130.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="血圧", metric_name="最低血圧", val=67.0, unit="mmHg", ref_min=None, ref_max=85.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="総コレステロール",
+            val=211.0,
+            unit="mg/dL",
+            ref_min=None,
+            ref_max=None,
+            grade="A",
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="HDLコレステロール",
+            val=63.0,
+            unit="mg/dL",
+            ref_min=40.0,
+            ref_max=None,
+            grade="A",
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="LDLコレステロール",
+            val=138.0,
+            unit="mg/dL",
+            ref_min=60.0,
+            ref_max=139.0,
+            grade="A",
+        ),
+        VitalMetricItem(
+            category="脂質", metric_name="中性脂肪", val=61.0, unit="mg/dL", ref_min=30.0, ref_max=149.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="糖代謝", metric_name="空腹時血糖", val=86.0, unit="mg/dL", ref_min=None, ref_max=100.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="糖代謝", metric_name="HbA1c", val=6.1, unit="%", ref_min=None, ref_max=5.5, grade="C"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="AST", val=32.0, unit="U/L", ref_min=None, ref_max=30.0, grade="B"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="ALT", val=61.0, unit="U/L", ref_min=None, ref_max=30.0, grade="D2"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="γ-GTP", val=43.0, unit="U/L", ref_min=None, ref_max=50.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="腎機能", metric_name="クレアチニン", val=0.84, unit="mg/dL", ref_min=None, ref_max=1.00, grade="A"
+        ),
+        VitalMetricItem(
+            category="腎機能", metric_name="e-GFR", val=81.4, unit="mL/min", ref_min=60.0, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="痛風", metric_name="尿酸", val=5.4, unit="mg/dL", ref_min=2.1, ref_max=7.0, grade="A"
+        ),
     ]
 
     vitals_2024 = [
-        VitalMetricItem(category="身体計測", metric_name="身長", val=176.7, unit="cm", ref_min=None, ref_max=None, grade="A"),
-        VitalMetricItem(category="身体計測", metric_name="体重", val=76.4, unit="kg", ref_min=None, ref_max=None, grade="C"),
-        VitalMetricItem(category="身体計測", metric_name="BMI", val=24.5, unit="kg/㎡", ref_min=18.5, ref_max=24.9, grade="A"),
-        VitalMetricItem(category="身体計測", metric_name="腹囲", val=92.0, unit="cm", ref_min=None, ref_max=85.0, grade="C"),
-        VitalMetricItem(category="血圧", metric_name="最高血圧", val=96.0, unit="mmHg", ref_min=None, ref_max=130.0, grade="A"),
-        VitalMetricItem(category="血圧", metric_name="最低血圧", val=66.0, unit="mmHg", ref_min=None, ref_max=85.0, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="総コレステロール", val=216.0, unit="mg/dL", ref_min=None, ref_max=None, grade="C"),
-        VitalMetricItem(category="脂質", metric_name="HDLコレステロール", val=57.0, unit="mg/dL", ref_min=40.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="脂質", metric_name="LDLコレステロール", val=159.0, unit="mg/dL", ref_min=60.0, ref_max=139.0, grade="C"),
-        VitalMetricItem(category="脂質", metric_name="中性脂肪", val=59.0, unit="mg/dL", ref_min=30.0, ref_max=149.0, grade="A"),
-        VitalMetricItem(category="糖代謝", metric_name="空腹時血糖", val=95.0, unit="mg/dL", ref_min=None, ref_max=100.0, grade="A"),
-        VitalMetricItem(category="糖代謝", metric_name="HbA1c", val=6.1, unit="%", ref_min=None, ref_max=5.5, grade="C"),
-        VitalMetricItem(category="肝機能", metric_name="AST", val=29.0, unit="U/L", ref_min=None, ref_max=30.0, grade="A"),
-        VitalMetricItem(category="肝機能", metric_name="ALT", val=51.0, unit="U/L", ref_min=None, ref_max=30.0, grade="C"),
-        VitalMetricItem(category="肝機能", metric_name="γ-GTP", val=44.0, unit="U/L", ref_min=None, ref_max=50.0, grade="A"),
-        VitalMetricItem(category="腎機能", metric_name="クレアチニン", val=0.87, unit="mg/dL", ref_min=None, ref_max=1.00, grade="A"),
-        VitalMetricItem(category="腎機能", metric_name="e-GFR", val=78.9, unit="mL/min", ref_min=60.0, ref_max=None, grade="A"),
-        VitalMetricItem(category="痛風", metric_name="尿酸", val=5.9, unit="mg/dL", ref_min=2.1, ref_max=7.0, grade="A"),
+        VitalMetricItem(
+            category="身体計測", metric_name="身長", val=176.7, unit="cm", ref_min=None, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="体重", val=76.4, unit="kg", ref_min=None, ref_max=None, grade="C"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="BMI", val=24.5, unit="kg/㎡", ref_min=18.5, ref_max=24.9, grade="A"
+        ),
+        VitalMetricItem(
+            category="身体計測", metric_name="腹囲", val=92.0, unit="cm", ref_min=None, ref_max=85.0, grade="C"
+        ),
+        VitalMetricItem(
+            category="血圧", metric_name="最高血圧", val=96.0, unit="mmHg", ref_min=None, ref_max=130.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="血圧", metric_name="最低血圧", val=66.0, unit="mmHg", ref_min=None, ref_max=85.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="総コレステロール",
+            val=216.0,
+            unit="mg/dL",
+            ref_min=None,
+            ref_max=None,
+            grade="C",
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="HDLコレステロール",
+            val=57.0,
+            unit="mg/dL",
+            ref_min=40.0,
+            ref_max=None,
+            grade="A",
+        ),
+        VitalMetricItem(
+            category="脂質",
+            metric_name="LDLコレステロール",
+            val=159.0,
+            unit="mg/dL",
+            ref_min=60.0,
+            ref_max=139.0,
+            grade="C",
+        ),
+        VitalMetricItem(
+            category="脂質", metric_name="中性脂肪", val=59.0, unit="mg/dL", ref_min=30.0, ref_max=149.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="糖代謝", metric_name="空腹時血糖", val=95.0, unit="mg/dL", ref_min=None, ref_max=100.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="糖代謝", metric_name="HbA1c", val=6.1, unit="%", ref_min=None, ref_max=5.5, grade="C"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="AST", val=29.0, unit="U/L", ref_min=None, ref_max=30.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="ALT", val=51.0, unit="U/L", ref_min=None, ref_max=30.0, grade="C"
+        ),
+        VitalMetricItem(
+            category="肝機能", metric_name="γ-GTP", val=44.0, unit="U/L", ref_min=None, ref_max=50.0, grade="A"
+        ),
+        VitalMetricItem(
+            category="腎機能", metric_name="クレアチニン", val=0.87, unit="mg/dL", ref_min=None, ref_max=1.00, grade="A"
+        ),
+        VitalMetricItem(
+            category="腎機能", metric_name="e-GFR", val=78.9, unit="mL/min", ref_min=60.0, ref_max=None, grade="A"
+        ),
+        VitalMetricItem(
+            category="痛風", metric_name="尿酸", val=5.9, unit="mg/dL", ref_min=2.1, ref_max=7.0, grade="A"
+        ),
     ]
 
     total_vitals = 0

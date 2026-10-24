@@ -22,7 +22,9 @@ from src.seed_data import load_seed_data
 def render_import_jig_view() -> None:
     """View 4: 検査結果の自動取り込み・登録。"""
     st.subheader("検査結果の取り込み・登録")
-    st.caption("健診・検査結果のPDFをアップロードし、Gemini 3.8 Flash（思考レベル: medium）で自動抽出・内容確認・データベース登録")
+    st.caption(
+        "健診・検査結果のPDFをアップロードし、Gemini 3.8 Flash（思考レベル: medium）で自動抽出・内容確認・データベース登録"
+    )
 
     # セッションステートの初期化
     if "uploaded_file_hash" not in st.session_state:

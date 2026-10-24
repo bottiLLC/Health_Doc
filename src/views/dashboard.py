@@ -43,16 +43,18 @@ def render_dashboard_view() -> None:
             status_cat = "受診間隔内 (順調)"
             cruising_count += 1
 
-        timeline_data.append({
-            "検査種別": ev["modality"],
-            "検査部位": ev["target_region"],
-            "受診医療機関": ev["clinic_name"],
-            "前回検査日": ev["exam_date"],
-            "次回推奨受診日": ev["dynamic_next_due"],
-            "判定ステータス": ev["status_flag"],
-            "次回までの日数": days_rem,
-            "状態区分": status_cat,
-        })
+        timeline_data.append(
+            {
+                "検査種別": ev["modality"],
+                "検査部位": ev["target_region"],
+                "受診医療機関": ev["clinic_name"],
+                "前回検査日": ev["exam_date"],
+                "次回推奨受診日": ev["dynamic_next_due"],
+                "判定ステータス": ev["status_flag"],
+                "次回までの日数": days_rem,
+                "状態区分": status_cat,
+            }
+        )
 
     # アラート指標カード
     col1, col2, col3, col4 = st.columns(4)

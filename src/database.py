@@ -89,16 +89,18 @@ def insert_vital_metrics(
     records: list[tuple[str, str, str, float, str, float | None, float | None, str | None]] = []
     for item in metrics:
         normalized_name = normalize_metric_name(item.metric_name)
-        records.append((
-            exam_date,
-            item.category,
-            normalized_name,
-            item.val,
-            item.unit,
-            item.ref_min,
-            item.ref_max,
-            item.grade,
-        ))
+        records.append(
+            (
+                exam_date,
+                item.category,
+                normalized_name,
+                item.val,
+                item.unit,
+                item.ref_min,
+                item.ref_max,
+                item.grade,
+            )
+        )
 
     insert_sql = """
     INSERT INTO vital_metrics (

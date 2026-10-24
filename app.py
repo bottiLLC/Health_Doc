@@ -77,12 +77,14 @@ with st.sidebar:
 st.title("🏥 パーソナル健康管理システム（Health Management System）")
 st.caption("定期健康診断（時系列血液検査）と精密画像検査の統合管理・次回受診案内システム")
 
-tab_dash, tab_trend, tab_ledger, tab_import = st.tabs([
-    "📊 総合健康ダッシュボード",
-    "📈 年次血液・健康診断トレンド",
-    "🗂️ 部位別検査カルテ & 検査PDF",
-    "📥 検査結果の取り込み・登録",
-])
+tab_dash, tab_trend, tab_ledger, tab_import = st.tabs(
+    [
+        "📊 総合健康ダッシュボード",
+        "📈 年次血液・健康診断トレンド",
+        "🗂️ 部位別検査カルテ & 検査PDF",
+        "📥 検査結果の取り込み・登録",
+    ]
+)
 
 with tab_dash:
     render_dashboard_view()

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
+
+import pydantic
 from google import genai
 from google.genai import types
 
 from src.config import get_gemini_api_key
-from src.models import HealthDocExtractionResult
+from src.models import HealthDocExtractionResult, normalize_metric_name
 
 EXTRACTION_SYSTEM_INSTRUCTION = """
 あなたは医療文書・健康診断報告書・画像診断レポートの解析を行う専門AIです。
@@ -31,6 +34,23 @@ EXTRACTION_SYSTEM_INSTRUCTION = """
 """
 
 
+def _clean_json_text(raw_text: str) -> str:
+    """Markdownコードブロックフェンス等を除去し、純粋なJSON文字列を抽出。"""
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    return cleaned.strip()
+
+
+def _normalize_extracted_metrics(result: HealthDocExtractionResult) -> HealthDocExtractionResult:
+    """抽出された生化学メトリクスの項目名を標準クランプ辞書で正規化。"""
+    if result.checkup_data and result.checkup_data.metrics:
+        for item in result.checkup_data.metrics:
+            item.metric_name = normalize_metric_name(item.metric_name)
+    return result
+
+
 def extract_health_doc_from_pdf(
     pdf_bytes: bytes,
     api_key: str | None = None,
@@ -42,12 +62,15 @@ def extract_health_doc_from_pdf(
         api_key: Gemini APIキー（未指定時は環境変数またはsecretsから自動解決）
 
     Returns:
-        HealthDocExtractionResult: パースされた構造化データ
+        HealthDocExtractionResult: パースおよび正規化済みの構造化データ
 
     Raises:
-        ValueError: APIキーが未設定の場合
-        RuntimeError: Gemini API呼び出しまたはパース失敗時
+        ValueError: PDFデータが空またはAPIキーが未設定の場合
+        RuntimeError: Gemini API呼び出しまたはスキーマ検証失敗時
     """
+    if not pdf_bytes:
+        raise ValueError("PDFデータが空です。有効なPDFバイナリを指定してください。")
+
     resolved_key = api_key or get_gemini_api_key()
     if not resolved_key:
         raise ValueError(
@@ -70,7 +93,7 @@ def extract_health_doc_from_pdf(
                     parts=[
                         pdf_part,
                         types.Part.from_text(
-                            text="この健康診断・検査レポートPDFを解析し、スキーマに従ってJSONを出力してください。"
+                            text="健康診断・検査レポートPDFから指示に従ってデータを抽出してください。"
                         ),
                     ],
                 )
@@ -80,15 +103,30 @@ def extract_health_doc_from_pdf(
                 system_instruction=EXTRACTION_SYSTEM_INSTRUCTION,
                 response_mime_type="application/json",
                 response_schema=HealthDocExtractionResult,
-                temperature=0.1,
+                temperature=0.0,
             ),
         )
 
-        response_text = response.text
-        if not response_text:
+        # 1. SDKネイティブの parsed を優先評価
+        if isinstance(response.parsed, HealthDocExtractionResult):
+            return _normalize_extracted_metrics(response.parsed)
+
+        if isinstance(response.parsed, dict):
+            parsed_model = HealthDocExtractionResult.model_validate(response.parsed)
+            return _normalize_extracted_metrics(parsed_model)
+
+        # 2. parsed が None の場合のフォールバック（マークダウンフェンス除去と model_validate_json）
+        raw_text = response.text
+        if not raw_text or not raw_text.strip():
             raise RuntimeError("Gemini APIから空の応答が返却されました。")
 
-        return HealthDocExtractionResult.model_validate_json(response_text)
+        cleaned_text = _clean_json_text(raw_text)
+        validated = HealthDocExtractionResult.model_validate_json(cleaned_text)
+        return _normalize_extracted_metrics(validated)
 
+    except pydantic.ValidationError as e:
+        raise RuntimeError(f"Gemini APIによるPDF構造化抽出中にスキーマ検証エラーが発生しました: {e!s}") from e
+    except (ValueError, RuntimeError):
+        raise
     except Exception as e:
-        raise RuntimeError(f"Gemini APIによるPDF解析中にエラーが発生しました: {e!s}") from e
+        raise RuntimeError(f"Gemini APIによるPDF構造化抽出中にエラーが発生しました: {e!s}") from e

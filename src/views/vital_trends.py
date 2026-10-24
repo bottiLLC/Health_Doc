@@ -45,9 +45,7 @@ def render_vital_trends_view() -> None:
     latest_val = float(latest_row["val"])
     latest_date_str = latest_row["exam_date"].strftime("%Y-%m-%d")
 
-    is_inverse = (
-        "コレステロール" in selected_metric or "ALT" in selected_metric or "HbA1c" in selected_metric
-    )
+    is_inverse = "コレステロール" in selected_metric or "ALT" in selected_metric or "HbA1c" in selected_metric
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric(
@@ -85,16 +83,20 @@ def render_vital_trends_view() -> None:
 
     # 基準上限ライン
     if ref_max is not None and not pd.isna(ref_max):
-        max_rule = alt.Chart(pd.DataFrame({"ref_max": [float(ref_max)]})).mark_rule(
-            color="#FF4B4B", strokeDash=[4, 4], size=2
-        ).encode(y="ref_max:Q")
+        max_rule = (
+            alt.Chart(pd.DataFrame({"ref_max": [float(ref_max)]}))
+            .mark_rule(color="#FF4B4B", strokeDash=[4, 4], size=2)
+            .encode(y="ref_max:Q")
+        )
         layers.append(max_rule)
 
     # 基準下限ライン
     if ref_min is not None and not pd.isna(ref_min):
-        min_rule = alt.Chart(pd.DataFrame({"ref_min": [float(ref_min)]})).mark_rule(
-            color="#FFAA00", strokeDash=[4, 4], size=2
-        ).encode(y="ref_min:Q")
+        min_rule = (
+            alt.Chart(pd.DataFrame({"ref_min": [float(ref_min)]}))
+            .mark_rule(color="#FFAA00", strokeDash=[4, 4], size=2)
+            .encode(y="ref_min:Q")
+        )
         layers.append(min_rule)
 
     final_chart = alt.layer(*layers).properties(height=360)

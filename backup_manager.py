@@ -100,11 +100,7 @@ def run_backup(app_name: str = "health_cmms", source_dir: str = "./data") -> dic
                 "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-    size_str = (
-        f"{file_size / (1024 * 1024):.2f} MB"
-        if file_size >= 1024 * 1024
-        else f"{file_size / 1024:.2f} KB"
-    )
+    size_str = f"{file_size / (1024 * 1024):.2f} MB" if file_size >= 1024 * 1024 else f"{file_size / 1024:.2f} KB"
 
     return {
         "success": True,
