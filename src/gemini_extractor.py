@@ -35,7 +35,7 @@ def extract_health_doc_from_pdf(
     pdf_bytes: bytes,
     api_key: str | None = None,
 ) -> HealthDocExtractionResult:
-    """Gemini 2.5 Flash の Structured Outputs を利用してPDFから健康診断データを抽出。
+    """Gemini 3.8 Flash (thinking_level: medium) の Structured Outputs を利用してPDFから健康診断データを抽出。
 
     Args:
         pdf_bytes: PDFファイルの生バイトデータ
@@ -63,7 +63,7 @@ def extract_health_doc_from_pdf(
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.8-flash",
             contents=[
                 types.Content(
                     role="user",
@@ -76,6 +76,7 @@ def extract_health_doc_from_pdf(
                 )
             ],
             config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MEDIUM),
                 system_instruction=EXTRACTION_SYSTEM_INSTRUCTION,
                 response_mime_type="application/json",
                 response_schema=HealthDocExtractionResult,

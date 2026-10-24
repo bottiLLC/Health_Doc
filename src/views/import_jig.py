@@ -22,7 +22,7 @@ from src.seed_data import load_seed_data
 def render_import_jig_view() -> None:
     """View 4: 検査結果の自動取り込み・登録。"""
     st.subheader("検査結果の取り込み・登録")
-    st.caption("健診・検査結果のPDFをアップロードし、AI解析により自動抽出・内容確認・データベース登録")
+    st.caption("健診・検査結果のPDFをアップロードし、Gemini 3.8 Flash（思考レベル: medium）で自動抽出・内容確認・データベース登録")
 
     # セッションステートの初期化
     if "uploaded_file_hash" not in st.session_state:
@@ -79,7 +79,7 @@ def render_import_jig_view() -> None:
             if not active_api_key:
                 st.error("Gemini APIキーを入力してください。")
             else:
-                with st.spinner("AIによるPDF解析中..."):
+                with st.spinner("Gemini 3.8 Flash（思考レベル: medium）でPDF解析中..."):
                     try:
                         result = extract_health_doc_from_pdf(file_bytes, api_key=active_api_key)
                         st.session_state["extraction_result"] = result

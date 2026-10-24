@@ -23,7 +23,7 @@
    - モダリティ検査履歴（所見、判定、医師コメント）の逆時系列表示。
    - 人間ドック内包検査の該当ページ番号（`pdf_page`）参照 & 検査原本PDFダウンロード。
 4. **検査結果の取り込み・登録**:
-   - Gemini 2.5 Flash によるPDF構造化自動解析（Structured Outputs）。
+   - Gemini 3.8 Flash（思考レベル: medium）によるPDF構造化自動解析（Structured Outputs）。
    - ファイルハッシュ比較による二重呼び出し防止 SessionState キャッシュ。
 5. **データ保護・自動バックアップ**:
    - `./data` ディレクトリの自動ZIP圧縮 & `testzip()` 破損検知整合性検証。
@@ -43,7 +43,7 @@
 │   ├── models.py              # Pydantic v2 スキーマ & クランプ辞書
 │   ├── database.py            # SQLite DDL & CRUD
 │   ├── recall_engine.py       # 動的受診推奨時期計算エンジン
-│   ├── gemini_extractor.py    # Gemini 2.5 Flash 抽出クライアント
+│   ├── gemini_extractor.py    # Gemini 3.8 Flash 抽出クライアント (thinking_level: medium)
 │   ├── seed_data.py           # 実機PDF4種プリセットローダー
 │   └── views/
 │       ├── dashboard.py       # Tab 1: 総合健康ダッシュボード
