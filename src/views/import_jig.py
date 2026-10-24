@@ -187,4 +187,5 @@ def render_import_jig_view() -> None:
                 st.success("データベースへの登録および検査原本PDFの保存が正常に完了しました！")
                 st.session_state["extraction_result"] = None
                 st.session_state["uploaded_file_hash"] = None
+                st.cache_data.clear()
                 st.rerun()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 
 import altair as alt
 import pandas as pd
@@ -9,13 +10,18 @@ import streamlit as st
 from src.database import fetch_all_imaging_events, fetch_organ_ledger
 
 
+@st.cache_data
+def _load_dashboard_data() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """ダッシュボード用検査イベントおよび部位別元帳データをキャッシュ取得。"""
+    return fetch_all_imaging_events(), fetch_organ_ledger()
+
+
 def render_dashboard_view() -> None:
     """View 1: 総合健康ダッシュボード（受診ステータス & タイムライン）。"""
     st.subheader("総合健康ダッシュボード")
     st.caption("画像診断・精密検査結果に基づく次回推奨受診時期および部位別の健康状態一覧")
 
-    events = fetch_all_imaging_events()
-    ledger = fetch_organ_ledger()
+    events, ledger = _load_dashboard_data()
 
     if not events and not ledger:
         st.info("検査データがまだ登録されていません。「検査結果の取り込み・登録」タブからPDFを登録してください。")

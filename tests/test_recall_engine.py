@@ -117,3 +117,56 @@ def test_derive_organ_ledger_update() -> None:
     assert ledger_item.last_exam_date == "2026-09-16"
     assert "CLEAR" in ledger_item.current_status
     assert ledger_item.next_action_due == "2029-09-16"
+
+
+def test_recall_engine_uncovered_branches() -> None:
+    """未網羅ブランチ（端数年数、超音波、各モダリティの要精検、未定義部位）を検証。"""
+    # 1.5年加算 (days_to_add > 0)
+    due_half = compute_dynamic_next_due("2026-01-01", "大腸内視鏡", "CLEAR", suggested_interval_years=1.5)
+    assert due_half.startswith("2027-")
+
+    # 腹部エコー / 超音波
+    due_echo = compute_dynamic_next_due("2026-05-10", "腹部エコー", "CLEAR")
+    assert due_echo == "2027-05-10"
+
+    due_us = compute_dynamic_next_due("2026-05-10", "超音波", "BENIGN_STABLE")
+    assert due_us == "2027-05-10"
+
+    # 未定義モダリティ (fallback)
+    due_other = compute_dynamic_next_due("2026-05-10", "PET-CT", "CLEAR")
+    assert due_other == "2027-05-10"
+
+    # 大腸内視鏡 ACTION_REQUIRED
+    due_colon_action = compute_dynamic_next_due("2026-05-10", "大腸内視鏡", "ACTION_REQUIRED")
+    assert due_colon_action == "2027-05-10"
+
+    # 脳MRI/MRA ACTION_REQUIRED
+    due_brain_action = compute_dynamic_next_due("2026-05-10", "脳MRI/MRA", "ACTION_REQUIRED")
+    assert due_brain_action == "2027-05-10"
+
+    # DWIBS WATCH_SHORTENED
+    due_dwibs_action = compute_dynamic_next_due("2026-05-10", "DWIBS", "WATCH_SHORTENED")
+    assert due_dwibs_action == "2027-05-10"
+
+    # 胸腹部CT ACTION_REQUIRED
+    due_ct_action = compute_dynamic_next_due("2026-05-10", "胸腹部CT", "ACTION_REQUIRED")
+    assert due_ct_action == "2027-05-10"
+
+    # 各種部位マッピング
+    for reg, expected_organ in [
+        ("全身", "全身"),
+        ("胸腹部", "肝臓"),
+        ("胃", "胃"),
+        ("上部消化管", "胃"),
+        ("腹部", "肝臓"),
+        ("未知の部位", "未知の部位"),
+    ]:
+        ev = ImagingEventPayload(
+            exam_date="2026-05-10",
+            modality="腹部エコー",
+            target_region=reg,
+            clinic_name="クリニック",
+            status_flag="CLEAR",
+            primary_findings="所見なし",
+        )
+        assert derive_organ_ledger_update(ev, "2027-05-10").organ == expected_organ

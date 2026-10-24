@@ -265,3 +265,7 @@ def test_qualitative_items_crud_operations() -> None:
         assert len(rechecked_hearing) == 1
         assert rechecked_hearing[0]["finding"] == "軽度所見あり"
         assert rechecked_hearing[0]["grade"] == "B"
+
+        # 空リスト挿入の境界値確認
+        assert insert_vital_metrics([], "2026-04-22", target_path=test_db) == 0
+        assert insert_qualitative_items([], "2026-04-22", target_path=test_db) == 0

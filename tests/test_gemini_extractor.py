@@ -181,3 +181,29 @@ def test_extract_invalid_json_raises_runtime_error() -> None:
         pytest.raises(RuntimeError, match="Gemini APIによるPDF構造化抽出中にスキーマ検証エラーが発生しました"),
     ):
         extract_health_doc_from_pdf(b"%PDF-dummy", api_key="valid-api-key")
+
+
+def test_extract_empty_response_raises_runtime_error() -> None:
+    mock_response = MagicMock(spec=types.GenerateContentResponse)
+    mock_response.parsed = None
+    mock_response.text = "   "
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+
+    with (
+        patch("src.gemini_extractor.genai.Client", return_value=mock_client),
+        pytest.raises(RuntimeError, match="Gemini APIから空の応答が返却されました"),
+    ):
+        extract_health_doc_from_pdf(b"%PDF-dummy", api_key="valid-api-key")
+
+
+def test_extract_unexpected_exception_raises_runtime_error() -> None:
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = ConnectionError("Connection refused")
+
+    with (
+        patch("src.gemini_extractor.genai.Client", return_value=mock_client),
+        pytest.raises(RuntimeError, match="Gemini APIによるPDF構造化抽出中にエラーが発生しました"),
+    ):
+        extract_health_doc_from_pdf(b"%PDF-dummy", api_key="valid-api-key")

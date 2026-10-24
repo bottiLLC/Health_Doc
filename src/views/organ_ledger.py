@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
 from src.database import fetch_all_imaging_events
+
+
+@st.cache_data
+def _load_imaging_events() -> list[dict[str, Any]]:
+    """部位別カルテ用の画像検査イベント履歴をキャッシュ取得。"""
+    return fetch_all_imaging_events()
 
 
 def render_organ_ledger_view() -> None:
@@ -12,7 +19,7 @@ def render_organ_ledger_view() -> None:
     st.subheader("部位別検査カルテ & 検査PDF")
     st.caption("精密画像・内視鏡検査の受診履歴（所見、判定、医師コメント）および原本PDF")
 
-    events = fetch_all_imaging_events()
+    events = _load_imaging_events()
     if not events:
         st.info("画像検査データがありません。「検査結果の取り込み・登録」タブからPDFを登録してください。")
         return

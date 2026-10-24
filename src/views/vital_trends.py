@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -9,6 +11,24 @@ from src.database import (
     fetch_all_vital_metrics,
     fetch_distinct_metric_categories,
 )
+
+
+@st.cache_data
+def _load_metric_categories() -> list[tuple[str, str]]:
+    """登録されているメトリクスのカテゴリ・項目名一覧をキャッシュ取得。"""
+    return fetch_distinct_metric_categories()
+
+
+@st.cache_data
+def _load_vital_metrics(category: str, metric_name: str) -> list[dict[str, Any]]:
+    """指定カテゴリ・項目の生化学メトリクスをキャッシュ取得。"""
+    return fetch_all_vital_metrics(category=category, metric_name=metric_name)
+
+
+@st.cache_data
+def _load_qualitative_items(is_summary: bool) -> list[dict[str, Any]]:
+    """定性検査・所見レコードをキャッシュ取得。"""
+    return fetch_all_qualitative_items(is_summary=is_summary)
 
 
 def _format_grade_badge(grade: str | None) -> str:
@@ -40,7 +60,7 @@ def render_vital_trends_view() -> None:
     # タブ 1: 数値トレンド推移（大分類　小分類 併記対応）
     # =========================================================
     with tab_numeric:
-        metric_pairs = fetch_distinct_metric_categories()
+        metric_pairs = _load_metric_categories()
         if not metric_pairs:
             st.info(
                 "健康診断データがありません。「検査結果の取り込み・登録」タブから健康診断データを登録してください。"
@@ -76,7 +96,7 @@ def render_vital_trends_view() -> None:
             )
 
             selected_category, selected_metric = selected_pair
-            records = fetch_all_vital_metrics(category=selected_category, metric_name=selected_metric)
+            records = _load_vital_metrics(category=selected_category, metric_name=selected_metric)
 
             if not records:
                 st.warning(f"項目 '{selected_category}　{selected_metric}' のデータが見つかりません。")
@@ -186,7 +206,7 @@ def render_vital_trends_view() -> None:
         st.markdown("#### 各科判定一覧（経年マトリクス）")
         st.caption("人間ドック結果報告書に記載された各科目判定（A〜E）の年次推移一覧")
 
-        summary_records = fetch_all_qualitative_items(is_summary=True)
+        summary_records = _load_qualitative_items(is_summary=True)
         if not summary_records:
             st.info("定性検査・各科判定データが登録されていません。")
         else:
@@ -254,7 +274,7 @@ def render_vital_trends_view() -> None:
         st.markdown("#### 聴力・眼底・定性検査の個別所見カルテ")
         st.caption("周波数別聴力、Scheie/改変Davis眼底分類、尿定性、便潜血、内科診察などの詳細所見記録")
 
-        detail_records = fetch_all_qualitative_items(is_summary=False)
+        detail_records = _load_qualitative_items(is_summary=False)
         if not detail_records:
             st.info("個別所見データがありません。")
         else:

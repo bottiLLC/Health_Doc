@@ -35,6 +35,16 @@ st.set_page_config(
 ensure_directories()
 init_db()
 
+@st.cache_data
+def get_db_summary_counts() -> tuple[int, int, int]:
+    """データベース登録件数の集計結果をキャッシュ取得。"""
+    return (
+        len(fetch_all_vital_metrics()),
+        len(fetch_all_qualitative_items()),
+        len(fetch_all_imaging_events()),
+    )
+
+
 # -------------------------------------------------------------
 # ゾーン1: サイドバー (設定・データ保護バックアップ)
 # -------------------------------------------------------------
@@ -45,9 +55,7 @@ with st.sidebar:
 
     # データベース状態表示
     st.subheader("データ管理状況")
-    vital_count = len(fetch_all_vital_metrics())
-    qualitative_count = len(fetch_all_qualitative_items())
-    imaging_count = len(fetch_all_imaging_events())
+    vital_count, qualitative_count, imaging_count = get_db_summary_counts()
     st.write(f"- データベース: **正常稼働** (`{DB_PATH.name}`)")
     st.write(f"- 登録生化学データ: **{vital_count} 件**")
     st.write(f"- 登録定性・判定項目: **{qualitative_count} 件**")
@@ -67,7 +75,7 @@ with st.sidebar:
         else:
             st.error(str(save_res["message"]))
 
-    if st.button("今すぐバックアップを実行", use_container_width=True, type="primary"):
+    if st.button("今すぐバックアップを実行", use_container_width=True):
         with st.spinner("圧縮・整合性検証中..."):
             res = run_backup(app_name="health_cmms")
         if res["success"]:
