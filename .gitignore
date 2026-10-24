@@ -1,0 +1,62 @@
+# ==============================================================================
+# Health CMMS - Protected Health Information (PHI) & Persistent Data Exclusions
+# ==============================================================================
+# Dynamic SQLite databases, local backups, and user medical PDFs
+/data/*
+!/data/.gitkeep
+!/data/pdfs/
+/data/pdfs/*
+!/data/pdfs/.gitkeep
+
+/backups/*
+!/backups/.gitkeep
+
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ==============================================================================
+# Secrets & API Credentials
+# ==============================================================================
+.env
+.env.*
+.secrets.toml
+.streamlit/secrets.toml
+*.pem
+*.key
+
+# ==============================================================================
+# Python Virtual Environments & Bytecode
+# ==============================================================================
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ==============================================================================
+# Test, Linter & Coverage Artifacts
+# ==============================================================================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.log
+
+# ==============================================================================
+# Operating System & Editor Artifacts
+# ==============================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
