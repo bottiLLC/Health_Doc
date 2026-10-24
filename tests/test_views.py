@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.database import init_db, insert_qualitative_items, insert_vital_metrics
 from src.models import QualitativeCheckupItem, VitalMetricItem
+from src.views.import_jig import render_import_jig_view
 from src.views.vital_trends import _format_grade_badge
 
 
@@ -105,3 +108,20 @@ def test_views_data_integrity() -> None:
         summaries = fetch_all_qualitative_items(is_summary=True, target_path=test_db)
         assert len(summaries) == 1
         assert summaries[0]["category"] == "総合判定"
+
+
+def test_import_jig_view_session_state_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_session_state: dict[str, object] = {"registration_success_msg": "登録完了テスト"}
+    mock_st = MagicMock()
+    mock_st.session_state = fake_session_state
+    mock_st.file_uploader.return_value = None
+
+    monkeypatch.setattr("src.views.import_jig.st", mock_st)
+    monkeypatch.setattr("src.views.import_jig.get_gemini_api_key", lambda: "dummy_key")
+
+    render_import_jig_view()
+
+    mock_st.success.assert_called_once_with("登録完了テスト")
+    assert "registration_success_msg" not in fake_session_state
+    assert fake_session_state["uploader_key"] == 0
+    assert fake_session_state["uploaded_file_hash"] is None

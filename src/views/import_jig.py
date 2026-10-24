@@ -26,6 +26,10 @@ def render_import_jig_view() -> None:
         "健診・検査結果のPDFをアップロードし、Gemini 3.8 Flash（思考レベル: medium）で自動抽出・内容確認・データベース登録"
     )
 
+    # 登録完了メッセージの表示
+    if success_msg := st.session_state.pop("registration_success_msg", None):
+        st.success(success_msg)
+
     # セッションステートの初期化
     if "uploaded_file_hash" not in st.session_state:
         st.session_state["uploaded_file_hash"] = None
@@ -33,6 +37,8 @@ def render_import_jig_view() -> None:
         st.session_state["extraction_result"] = None
     if "uploaded_pdf_bytes" not in st.session_state:
         st.session_state["uploaded_pdf_bytes"] = None
+    if "uploader_key" not in st.session_state:
+        st.session_state["uploader_key"] = 0
 
     # 1. API キーの確認
     active_api_key = get_gemini_api_key()
@@ -51,10 +57,15 @@ def render_import_jig_view() -> None:
     uploaded_file = st.file_uploader(
         "健康診断・精密検査結果のPDFをアップロード",
         type=["pdf"],
+        key=f"pdf_uploader_{st.session_state['uploader_key']}",
         help="人間ドック結果報告書、CT検査レポート、内視鏡報告書、DWIBSレポート等に対応",
     )
 
-    if uploaded_file is not None:
+    if uploaded_file is None:
+        st.session_state["uploaded_file_hash"] = None
+        st.session_state["uploaded_pdf_bytes"] = None
+        st.session_state["extraction_result"] = None
+    else:
         file_bytes = uploaded_file.getvalue()
         file_hash = hashlib.sha256(file_bytes).hexdigest()
 
@@ -184,8 +195,12 @@ def render_import_jig_view() -> None:
                     ledger_item = derive_organ_ledger_update(im_data, due)
                     upsert_organ_ledger(ledger_item)
 
-                st.success("データベースへの登録および検査原本PDFの保存が正常に完了しました！")
+                st.session_state["registration_success_msg"] = (
+                    "データベースへの登録および検査原本PDFの保存が正常に完了しました！"
+                )
                 st.session_state["extraction_result"] = None
                 st.session_state["uploaded_file_hash"] = None
+                st.session_state["uploaded_pdf_bytes"] = None
+                st.session_state["uploader_key"] = int(st.session_state.get("uploader_key", 0)) + 1
                 st.cache_data.clear()
                 st.rerun()
