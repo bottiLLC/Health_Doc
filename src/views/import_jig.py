@@ -1,34 +1,137 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+from backup_manager import run_backup
 from src.config import PDF_DIR, generate_pdf_filename, get_gemini_api_key
 from src.database import (
+    delete_registered_files_cascade,
+    fetch_all_registered_files,
+    fetch_latest_exam_for_modality_or_region,
     insert_imaging_event,
     insert_qualitative_items,
     insert_vital_metrics,
+    rebuild_organ_ledger,
+    register_file,
     upsert_organ_ledger,
 )
 from src.gemini_extractor import extract_health_doc_from_pdf
 from src.models import (
     HealthDocExtractionResult,
+    ImagingEventPayload,
+    RegisteredFileRecord,
 )
 from src.recall_engine import compute_dynamic_next_due, derive_organ_ledger_update
+
+
+def _render_registered_files_section() -> None:
+    """登録済みファイルの一覧表示およびチェックボックスによる安全な選択削除UI。"""
+    st.markdown("### 📂 登録済み検査原本ファイル一覧")
+    st.caption("現在データベースおよび原本ストレージに登録されているファイルの一覧です。誤って登録したファイルを選択して削除できます。")
+
+    registered_files = fetch_all_registered_files()
+    if not registered_files:
+        st.info("登録済みのファイルはありません。下のアップローダーからPDFを登録してください。")
+        st.divider()
+        return
+
+    # 削除確認状態の管理
+    if "selected_files_to_delete" not in st.session_state:
+        st.session_state["selected_files_to_delete"] = []
+
+    # 選択チェックボックス用のフォーム
+    with st.expander(f"登録済みファイル一覧を表示 ({len(registered_files)} 件)", expanded=True):
+        col_hdr1, col_hdr2, col_hdr3, col_hdr4, col_hdr5, col_hdr6 = st.columns([1, 4, 2, 3, 3, 2])
+        col_hdr1.markdown("**選択**")
+        col_hdr2.markdown("**ファイル名 / 原本**")
+        col_hdr3.markdown("**受診日**")
+        col_hdr4.markdown("**書類種別 / 機関**")
+        col_hdr5.markdown("**取り込み件数**")
+        col_hdr6.markdown("**登録日時**")
+
+        selected_ids: list[int] = []
+        for f_item in registered_files:
+            fid = int(f_item["file_id"])
+            c1, c2, c3, c4, c5, c6 = st.columns([1, 4, 2, 3, 3, 2])
+
+            with c1:
+                is_selected = st.checkbox("", key=f"sel_file_{fid}", label_visibility="collapsed")
+                if is_selected:
+                    selected_ids.append(fid)
+
+            with c2:
+                st.write(f"📄 **{f_item['file_name']}**")
+                file_path = Path(str(f_item["storage_path"]))
+                if file_path.exists():
+                    st.download_button(
+                        label="📥 原本PDF",
+                        data=file_path.read_bytes(),
+                        file_name=file_path.name,
+                        mime="application/pdf",
+                        key=f"dl_reg_{fid}",
+                        type="secondary",
+                    )
+
+            with c3:
+                st.write(f_item["exam_date"] or "-")
+
+            with c4:
+                doc_lbl = "定期健診ドック" if f_item["doc_type"] == "ANNUAL_CHECKUP" else "精密画像検査"
+                st.write(f"{doc_lbl}")
+                st.caption(f_item["clinic_name"])
+
+            with c5:
+                v_cnt = f_item.get("vital_count", 0)
+                q_cnt = f_item.get("qualitative_count", 0)
+                i_cnt = f_item.get("imaging_count", 0)
+                st.write(f"生化学: {v_cnt} | 定性: {q_cnt} | 画像: {i_cnt}")
+
+            with c6:
+                st.caption(f_item["registered_at"][:16])
+
+            st.divider()
+
+        # 削除アクション
+        if selected_ids:
+            st.warning(f"⚠️ {len(selected_ids)} 件のファイルが選択されています。")
+            if st.button("🗑️ 選択したファイルを完全に削除する", type="primary", use_container_width=True):
+                with st.spinner("安全バックアップを作成し、カスケード削除と元帳の再同期を実行中..."):
+                    # 1. 削除直前の自動安全バックアップ
+                    run_backup(app_name="health_cmms_before_delete")
+
+                    # 2. カスケード削除 & 元帳再集約
+                    res = delete_registered_files_cascade(selected_ids)
+
+                    # 3. キャッシュクリアと完了通知
+                    st.cache_data.clear()
+                    st.session_state["registration_success_msg"] = (
+                        f"ファイル {res['files']} 件および紐付く全検査データ"
+                        f"（生化学: {res['vital_metrics']}件, 定性: {res['qualitative_items']}件, "
+                        f"画像: {res['imaging_events']}件）を完全に削除し、カルテ元帳を最新残存状態へ再同期しました。"
+                    )
+                    st.rerun()
+
+    st.divider()
 
 
 def render_import_jig_view() -> None:
     """View 4: 検査結果の自動取り込み・登録。"""
     st.subheader("検査結果の取り込み・登録")
     st.caption(
-        "健診・検査結果のPDFをアップロードし、Gemini 3.8 Flash（思考レベル: medium）で自動抽出・内容確認・データベース登録"
+        "健診・検査結果のPDFをアップロードし、Gemini 3.8 Flash（思考レベル: medium）で自動抽出・新旧確認・データベース登録"
     )
 
     # 登録完了メッセージの表示
     if success_msg := st.session_state.pop("registration_success_msg", None):
         st.success(success_msg)
+
+    # 1. 登録済みファイル一覧 & 選択削除セクション
+    _render_registered_files_section()
 
     # セッションステートの初期化
     if "uploaded_file_hash" not in st.session_state:
@@ -40,7 +143,7 @@ def render_import_jig_view() -> None:
     if "uploader_key" not in st.session_state:
         st.session_state["uploader_key"] = 0
 
-    # 1. API キーの確認
+    # 2. API キーの確認
     active_api_key = get_gemini_api_key()
     if not active_api_key:
         manual_key = st.text_input(
@@ -53,9 +156,9 @@ def render_import_jig_view() -> None:
         else:
             st.info("💡 PDFの自動解析を実行するには Gemini API キーが必要です。")
 
-    # 2. PDFファイルアップローダー
+    # 3. PDFファイルアップローダー
     uploaded_file = st.file_uploader(
-        "健康診断・精密検査結果のPDFをアップロード",
+        "新しい健康診断・精密検査結果のPDFをアップロード",
         type=["pdf"],
         key=f"pdf_uploader_{st.session_state['uploader_key']}",
         help="人間ドック結果報告書、CT検査レポート、内視鏡報告書、DWIBSレポート等に対応",
@@ -68,6 +171,18 @@ def render_import_jig_view() -> None:
     else:
         file_bytes = uploaded_file.getvalue()
         file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+        # 重複ファイル照合チェック
+        all_registered = fetch_all_registered_files()
+        already_reg = next((f for f in all_registered if f["file_hash"] == file_hash), None)
+        if already_reg:
+            st.warning(
+                f"⚠️ このファイルは既に登録されています。\n\n"
+                f"- ファイル名: **{already_reg['file_name']}**\n"
+                f"- 検査日: **{already_reg['exam_date']}** | 医療機関: **{already_reg['clinic_name']}**\n"
+                f"- 登録日時: **{already_reg['registered_at']}**\n\n"
+                f"再度登録する必要はありません。誤登録の場合は上の一覧から削除してください。"
+            )
 
         # ファイルハッシュの比較による API 二重呼び出しガード
         if file_hash != st.session_state["uploaded_file_hash"]:
@@ -86,10 +201,10 @@ def render_import_jig_view() -> None:
                     except Exception as e:
                         st.error(f"解析エラー: {e!s}")
 
-    # 3. 抽出結果のプレビュー & 登録確認フォーム
+    # 4. 抽出結果のプレビュー & 新旧確認フォーム
     ext_result: HealthDocExtractionResult | None = st.session_state.get("extraction_result")
     if ext_result is not None:
-        st.subheader("抽出結果プレビュー & 確定登録")
+        st.subheader("抽出結果プレビュー & 新旧検査日照合・登録確認")
 
         with st.form("commit_form", clear_on_submit=False):
             st.info(f"書類種別の自動判別結果: **{ext_result.doc_type}**")
@@ -103,6 +218,26 @@ def render_import_jig_view() -> None:
                     st.text_input("受診日 (YYYY-MM-DD)", value=cd.exam_date, disabled=True)
                 with col_c2:
                     st.text_input("受診医療機関", value=cd.clinic_name, disabled=True)
+
+                # 定期健康診断（総合）の既存前回検査日との照合
+                existing_annual = fetch_latest_exam_for_modality_or_region("定期健康診断", "全身")
+                if existing_annual:
+                    old_date = existing_annual["exam_date"]
+                    if cd.exam_date > old_date:
+                        st.success(
+                            f"✅ 【定期健診（総合）】既存の前回検査日（**{old_date}**）より新しい受診日（**{cd.exam_date}**）です。"
+                            f"次回推奨日は新たに 1年後（**{cd.exam_date[:4]}年の同時期**）へ更新されます。"
+                        )
+                    elif cd.exam_date < old_date:
+                        st.info(
+                            f"ℹ️ 【定期健診（総合）】既存の最新検査日（**{old_date}**）より過去の受診記録です。"
+                            f"検査履歴として蓄積されますが、最新の前回検査日（**{old_date}**）は維持されます。"
+                        )
+                    else:
+                        st.warning(f"⚠️ 【定期健診（総合）】同日（**{cd.exam_date}**）の健診記録が既に存在します。上書き更新されます。")
+                else:
+                    st.info("🆕 【定期健診（総合）】システム初の定期健診記録として登録されます。次回予定は1年後となります。")
+
 
                 metrics_df = pd.DataFrame([m.model_dump() for m in cd.metrics])
                 st.dataframe(metrics_df, use_container_width=True, hide_index=True)
@@ -130,38 +265,123 @@ def render_import_jig_view() -> None:
                 st.text_area("主要所見", value=im.primary_findings, disabled=True)
                 st.text_area("医師コメント", value=im.raw_comment, disabled=True)
 
+                # 既存の前回検査日との照合判定
+                existing_single = fetch_latest_exam_for_modality_or_region(im.modality, im.target_region)
+                calcd_due = compute_dynamic_next_due(
+                    im.exam_date, im.modality, im.status_flag, im.raw_comment, im.suggested_interval_years
+                )
+                if existing_single:
+                    old_exam = existing_single["exam_date"]
+                    old_due = existing_single["dynamic_next_due"]
+                    if im.exam_date > old_exam:
+                        st.success(
+                            f"✅ 【{im.modality}（部位: {im.target_region}）】既存の前回検査日（**{old_exam}** / 次回: {old_due}）より新しい検査です。\n\n"
+                            f"→ 今回の受診日（**{im.exam_date}**）を新たな「前回検査日」とし、次回推奨受診日を **{calcd_due}** に更新します。"
+                        )
+                    elif im.exam_date < old_exam:
+                        st.info(
+                            f"ℹ️ 【{im.modality}（部位: {im.target_region}）】既存の最新検査日（**{old_exam}** / 次回: {old_due}）より過去の受診記録です。\n\n"
+                            f"→ 過去履歴として保存されますが、現在のアクティブな前回検査日および次回受診推奨日は最新の記録（**{old_exam}**）が維持されます。"
+                        )
+                    else:
+                        st.warning(f"⚠️ 同日（**{im.exam_date}**）の検査記録が存在します。上書き更新されます。")
+                else:
+                    st.info(
+                        f"🆕 【{im.modality}（部位: {im.target_region}）】システム初の検査記録です。"
+                        f"前回検査日: **{im.exam_date}** → 次回推奨受診日: **{calcd_due}** として登録されます。"
+                    )
+
             # C. 内包された画像検査データ
             if ext_result.embedded_imaging_events:
-                st.markdown(f"#### 2. 人間ドック内包の精密画像検査 ({len(ext_result.embedded_imaging_events)} 件)")
+                st.markdown(f"#### 3. 人間ドック内包の精密画像検査 ({len(ext_result.embedded_imaging_events)} 件)")
                 for _idx, emb in enumerate(ext_result.embedded_imaging_events):
+                    emb_due = compute_dynamic_next_due(
+                        emb.exam_date, emb.modality, emb.status_flag, emb.raw_comment, emb.suggested_interval_years
+                    )
                     st.write(
                         f"- **{emb.modality}** ({emb.target_region}) | "
-                        f"所見: {emb.primary_findings} [{emb.status_flag}] | P.{emb.pdf_page or 1}"
+                        f"所見: {emb.primary_findings} [{emb.status_flag}] | 次回推奨: **{emb_due}** | P.{emb.pdf_page or 1}"
                     )
+                    # 各内包検査の既存前回検査日との照合
+                    existing_emb = fetch_latest_exam_for_modality_or_region(emb.modality, emb.target_region)
+                    if existing_emb:
+                        old_dt = existing_emb["exam_date"]
+                        if emb.exam_date > old_dt:
+                            st.caption(f"  └ 既存前回検査日（{old_dt}）を今回の検査日（{emb.exam_date}）へ更新します。")
+                        elif emb.exam_date < old_dt:
+                            st.caption(f"  └ 既存の最新検査日（{old_dt}）より過去の受診記録です（過去履歴として保存）。")
+
+            force_overwrite = st.checkbox(
+                "過去日付の検査記録であっても、既存の最新検査日・次回受診日を強制的にこの日付で上書きする（通常はOFF）",
+                value=False,
+                help="過去日付の記録を修正・差し替え登録したい場合のみチェックしてください。",
+            )
 
             submit_commit = st.form_submit_button("検査結果をデータベースへ登録・原本保存", type="primary")
 
         if submit_commit:
             with st.spinner("データベースへ登録中..."):
                 pdf_bytes_to_save = st.session_state.get("uploaded_pdf_bytes")
+                if not pdf_bytes_to_save:
+                    st.error("保存対象のPDFデータが見つかりません。")
+                    return
+
+                file_hash_val = hashlib.sha256(pdf_bytes_to_save).hexdigest()
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 if ext_result.doc_type == "ANNUAL_CHECKUP" and ext_result.checkup_data:
                     c_date = ext_result.checkup_data.exam_date
                     c_clinic = ext_result.checkup_data.clinic_name
                     saved_pdf_name = generate_pdf_filename(c_date, "ANNUAL", c_clinic, is_annual=True)
                     saved_pdf_path = PDF_DIR / saved_pdf_name
+                    saved_pdf_path.write_bytes(pdf_bytes_to_save)
 
-                    if pdf_bytes_to_save:
-                        saved_pdf_path.write_bytes(pdf_bytes_to_save)
+                    # 1. registered_files へ登録
+                    file_record = RegisteredFileRecord(
+                        file_name=saved_pdf_name,
+                        original_name=uploaded_file.name if uploaded_file else saved_pdf_name,
+                        file_hash=file_hash_val,
+                        doc_type="ANNUAL_CHECKUP",
+                        exam_date=c_date,
+                        clinic_name=c_clinic,
+                        registered_at=now_str,
+                        file_size=len(pdf_bytes_to_save),
+                        storage_path=str(saved_pdf_path),
+                    )
+                    new_file_id = register_file(file_record)
 
-                    # メトリクス登録
-                    insert_vital_metrics(ext_result.checkup_data.metrics, c_date)
+                    # 2. メトリクス登録
+                    insert_vital_metrics(ext_result.checkup_data.metrics, c_date, file_id=new_file_id)
 
-                    # 定性検査・所見・判定項目の登録
+                    # 3. 定性検査・所見・判定項目の登録
                     if ext_result.checkup_data.qualitative_items:
-                        insert_qualitative_items(ext_result.checkup_data.qualitative_items, c_date)
+                        insert_qualitative_items(
+                            ext_result.checkup_data.qualitative_items, c_date, file_id=new_file_id
+                        )
 
-                    # 内包画像検査の登録
+                    # 4. 定期健康診断（総合）イベント自体の登録（次回推奨日: 1年後）
+                    annual_event = ImagingEventPayload(
+                        exam_date=c_date,
+                        modality="定期健康診断",
+                        target_region="全身",
+                        clinic_name=c_clinic,
+                        status_flag="CLEAR",
+                        primary_findings="年次定期健康診断（生化学・身体測定・定性判定）",
+                        raw_comment="定期健康診断（次回推奨受診時期: 1年後）",
+                        pdf_page=1,
+                        suggested_interval_years=1.0,
+                    )
+                    annual_due = compute_dynamic_next_due(c_date, "定期健康診断", "CLEAR", suggested_interval_years=1.0)
+                    insert_imaging_event(annual_event, annual_due, str(saved_pdf_path), file_id=new_file_id)
+                    annual_ledger = derive_organ_ledger_update(annual_event, annual_due)
+                    if force_overwrite:
+                        upsert_organ_ledger(annual_ledger)
+                    else:
+                        existing_a = fetch_latest_exam_for_modality_or_region("定期健康診断", "全身")
+                        if not existing_a or c_date >= existing_a["exam_date"]:
+                            upsert_organ_ledger(annual_ledger)
+
+                    # 5. 内包画像検査の登録
                     for emb in ext_result.embedded_imaging_events:
                         due = compute_dynamic_next_due(
                             emb.exam_date,
@@ -170,9 +390,14 @@ def render_import_jig_view() -> None:
                             emb.raw_comment,
                             emb.suggested_interval_years,
                         )
-                        insert_imaging_event(emb, due, str(saved_pdf_path))
+                        insert_imaging_event(emb, due, str(saved_pdf_path), file_id=new_file_id)
                         ledger_item = derive_organ_ledger_update(emb, due)
-                        upsert_organ_ledger(ledger_item)
+                        if force_overwrite:
+                            upsert_organ_ledger(ledger_item)
+                        else:
+                            existing_emb = fetch_latest_exam_for_modality_or_region(emb.modality, emb.target_region)
+                            if not existing_emb or emb.exam_date >= existing_emb["exam_date"]:
+                                upsert_organ_ledger(ledger_item)
 
                 elif ext_result.imaging_data:
                     im_data = ext_result.imaging_data
@@ -180,10 +405,23 @@ def render_import_jig_view() -> None:
                         im_data.exam_date, im_data.modality, im_data.clinic_name, is_annual=False
                     )
                     saved_pdf_path = PDF_DIR / saved_pdf_name
+                    saved_pdf_path.write_bytes(pdf_bytes_to_save)
 
-                    if pdf_bytes_to_save:
-                        saved_pdf_path.write_bytes(pdf_bytes_to_save)
+                    # 1. registered_files へ登録
+                    file_record = RegisteredFileRecord(
+                        file_name=saved_pdf_name,
+                        original_name=uploaded_file.name if uploaded_file else saved_pdf_name,
+                        file_hash=file_hash_val,
+                        doc_type="SINGLE_IMAGING",
+                        exam_date=im_data.exam_date,
+                        clinic_name=im_data.clinic_name,
+                        registered_at=now_str,
+                        file_size=len(pdf_bytes_to_save),
+                        storage_path=str(saved_pdf_path),
+                    )
+                    new_file_id = register_file(file_record)
 
+                    # 2. 画像検査の登録
                     due = compute_dynamic_next_due(
                         im_data.exam_date,
                         im_data.modality,
@@ -191,12 +429,22 @@ def render_import_jig_view() -> None:
                         im_data.raw_comment,
                         im_data.suggested_interval_years,
                     )
-                    insert_imaging_event(im_data, due, str(saved_pdf_path))
+                    insert_imaging_event(im_data, due, str(saved_pdf_path), file_id=new_file_id)
+
+                    # 3. 元帳更新（最新日または強制上書き時のみ）
                     ledger_item = derive_organ_ledger_update(im_data, due)
-                    upsert_organ_ledger(ledger_item)
+                    if force_overwrite:
+                        upsert_organ_ledger(ledger_item)
+                    else:
+                        existing_rec = fetch_latest_exam_for_modality_or_region(im_data.modality, im_data.target_region)
+                        if not existing_rec or im_data.exam_date >= existing_rec["exam_date"]:
+                            upsert_organ_ledger(ledger_item)
+
+                # 整合性確保のための再同期
+                rebuild_organ_ledger()
 
                 st.session_state["registration_success_msg"] = (
-                    "データベースへの登録および検査原本PDFの保存が正常に完了しました！"
+                    "データベースへの登録および原本ファイルの保存が正常に完了しました！"
                 )
                 st.session_state["extraction_result"] = None
                 st.session_state["uploaded_file_hash"] = None

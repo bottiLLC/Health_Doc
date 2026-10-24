@@ -11,6 +11,7 @@ ModalityType = Literal[
     "胸腹部CT",
     "胃カメラ",
     "腹部エコー",
+    "定期健康診断",
     "その他",
 ]
 
@@ -173,3 +174,19 @@ class InspectionTimelineItem(BaseModel):
     status_flag: StatusFlagType
     days_remaining: int
     alert_level: Literal["CRITICAL", "UPCOMING", "CRUISING"]
+
+
+class RegisteredFileRecord(BaseModel):
+    """登録済み検査原本ファイルのメタデータモデル（Table: registered_files）。"""
+
+    file_id: int | None = Field(default=None, description="ファイル登録ID（自動採番）")
+    file_name: str = Field(description="保存ファイル名（例: 20260422_ANNUAL_medock総合健診クリニック.pdf）")
+    original_name: str = Field(description="アップロード時の元ファイル名")
+    file_hash: str = Field(description="SHA-256ハッシュ（重複検知用）")
+    doc_type: str = Field(description="書類種別（ANNUAL_CHECKUP / SINGLE_IMAGING）")
+    exam_date: str = Field(description="検査日 (YYYY-MM-DD)")
+    clinic_name: str = Field(description="受診医療機関名")
+    registered_at: str = Field(description="登録日時 (YYYY-MM-DD HH:MM:SS)")
+    file_size: int = Field(description="ファイルサイズ (bytes)")
+    storage_path: str = Field(description="ディスク保存先パス")
+

@@ -8,6 +8,7 @@ from src.database import (
     insert_imaging_event,
     insert_qualitative_items,
     insert_vital_metrics,
+    rebuild_organ_ledger,
     upsert_organ_ledger,
 )
 from src.models import (
@@ -340,9 +341,9 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
     ]
 
     total_vitals = 0
-    total_vitals += insert_vital_metrics(vitals_2026, "2026-04-22", target_path)
-    total_vitals += insert_vital_metrics(vitals_2025, "2025-04-30", target_path)
-    total_vitals += insert_vital_metrics(vitals_2024, "2024-05-01", target_path)
+    total_vitals += insert_vital_metrics(vitals_2026, "2026-04-22", target_path=target_path)
+    total_vitals += insert_vital_metrics(vitals_2025, "2025-04-30", target_path=target_path)
+    total_vitals += insert_vital_metrics(vitals_2024, "2024-05-01", target_path=target_path)
 
     # -------------------------------------------------------------
     # 2. 人間ドック (medock) 3年分定性検査・所見・各科総合判定
@@ -680,9 +681,9 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
     ]
 
     total_qualitative = 0
-    total_qualitative += insert_qualitative_items(qualitative_2026, "2026-04-22", target_path)
-    total_qualitative += insert_qualitative_items(qualitative_2025, "2025-04-30", target_path)
-    total_qualitative += insert_qualitative_items(qualitative_2024, "2024-05-01", target_path)
+    total_qualitative += insert_qualitative_items(qualitative_2026, "2026-04-22", target_path=target_path)
+    total_qualitative += insert_qualitative_items(qualitative_2025, "2025-04-30", target_path=target_path)
+    total_qualitative += insert_qualitative_items(qualitative_2024, "2024-05-01", target_path=target_path)
 
     # -------------------------------------------------------------
     # 3. 画像・内視鏡精密検査イベント（実機4件 + ドック内包分）
@@ -801,13 +802,16 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
             raw_comment=payload.raw_comment,
             suggested_interval_years=payload.suggested_interval_years,
         )
-        insert_imaging_event(payload, due_date, path_str, target_path)
+        insert_imaging_event(payload, due_date, path_str, target_path=target_path)
         ledger_update = derive_organ_ledger_update(payload, due_date)
         upsert_organ_ledger(ledger_update, target_path)
         total_events += 1
+
+    rebuild_organ_ledger(target_path)
 
     return {
         "vital_metrics_count": total_vitals,
         "qualitative_items_count": total_qualitative,
         "imaging_events_count": total_events,
     }
+

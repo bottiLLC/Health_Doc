@@ -15,6 +15,7 @@ from src.config import DB_PATH, ensure_directories
 from src.database import (
     fetch_all_imaging_events,
     fetch_all_qualitative_items,
+    fetch_all_registered_files,
     fetch_all_vital_metrics,
     init_db,
 )
@@ -36,9 +37,10 @@ ensure_directories()
 init_db()
 
 @st.cache_data
-def get_db_summary_counts() -> tuple[int, int, int]:
+def get_db_summary_counts() -> tuple[int, int, int, int]:
     """データベース登録件数の集計結果をキャッシュ取得。"""
     return (
+        len(fetch_all_registered_files()),
         len(fetch_all_vital_metrics()),
         len(fetch_all_qualitative_items()),
         len(fetch_all_imaging_events()),
@@ -55,11 +57,13 @@ with st.sidebar:
 
     # データベース状態表示
     st.subheader("データ管理状況")
-    vital_count, qualitative_count, imaging_count = get_db_summary_counts()
+    file_count, vital_count, qualitative_count, imaging_count = get_db_summary_counts()
     st.write(f"- データベース: **正常稼働** (`{DB_PATH.name}`)")
+    st.write(f"- 登録原本ファイル: **{file_count} 件**")
     st.write(f"- 登録生化学データ: **{vital_count} 件**")
     st.write(f"- 登録定性・判定項目: **{qualitative_count} 件**")
     st.write(f"- 登録精密画像検査: **{imaging_count} 件**")
+
 
     # 標準バックアップマネージャー (Python-backup-script 準拠)
     st.divider()
