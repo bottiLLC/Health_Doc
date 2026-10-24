@@ -17,7 +17,6 @@ from src.models import (
     HealthDocExtractionResult,
 )
 from src.recall_engine import compute_dynamic_next_due, derive_organ_ledger_update
-from src.seed_data import load_seed_data
 
 
 def render_import_jig_view() -> None:
@@ -34,21 +33,6 @@ def render_import_jig_view() -> None:
         st.session_state["extraction_result"] = None
     if "uploaded_pdf_bytes" not in st.session_state:
         st.session_state["uploaded_pdf_bytes"] = None
-
-    # 実機サンプル一括登録機能（デモ・動作確認用）
-    with st.expander("⚡ クイックアクション: 4種のサンプル検査結果を一括登録", expanded=False):
-        st.write("添付された4件の実データ（CT・DWIBS・大腸内視鏡・人間ドック3年分）を一括初期化・再登録します。")
-        if st.button("サンプル検査結果を一括登録実行", type="secondary"):
-            with st.spinner("検査結果データを登録中..."):
-                counts = load_seed_data()
-            st.success(
-                f"登録完了: 生化学検査データ {counts['vital_metrics_count']} 件, "
-                f"定性・判定項目 {counts.get('qualitative_items_count', 0)} 件, "
-                f"精密画像検査 {counts['imaging_events_count']} 件"
-            )
-            st.rerun()
-
-    st.divider()
 
     # 1. API キーの確認
     active_api_key = get_gemini_api_key()
