@@ -8,13 +8,13 @@ from src.database import fetch_all_vital_metrics, fetch_distinct_metric_names
 
 
 def render_vital_trends_view() -> None:
-    """View 2: 年次生化学トレンド（管理図）。"""
-    st.subheader("年次生化学トレンド管理図")
-    st.caption("血液・尿・身体計測の経年変化と基準値公差バンドによる予防保全トラッキング")
+    """View 2: 年次血液・健康診断トレンドグラフ。"""
+    st.subheader("年次血液・健康診断トレンドグラフ")
+    st.caption("血液・尿・身体計測の経年変化と基準値範囲（上限・下限）による健康推移トラッキング")
 
     metrics_list = fetch_distinct_metric_names()
     if not metrics_list:
-        st.info("生化学メトリクスデータがありません。「データ投入治具」から健康診断データをインポートしてください。")
+        st.info("健康診断データがありません。「検査結果の取り込み・登録」タブから健康診断データを登録してください。")
         return
 
     # 主要項目の優先ソート
@@ -24,10 +24,10 @@ def render_vital_trends_view() -> None:
     ]
 
     selected_metric = st.selectbox(
-        "トラッキング対象項目を選択",
+        "検査項目を選択",
         options=sorted_metrics,
         index=0,
-        help="表示する検査項目を選択してください。クランプ辞書により名称統一済みです。",
+        help="推移を確認する検査項目を選択してください。表記ゆれは自動正規化されています。",
     )
 
     records = fetch_all_vital_metrics(metric_name=selected_metric)
@@ -60,13 +60,13 @@ def render_vital_trends_view() -> None:
         ref_min = latest_row["ref_min"]
         ref_max = latest_row["ref_max"]
         ref_display = f"{ref_min if ref_min is not None else '-'} 〜 {ref_max if ref_max is not None else '-'}"
-        st.metric(label="基準公差範囲", value=f"{ref_display} {unit_str}")
+        st.metric(label="基準値範囲", value=f"{ref_display} {unit_str}")
     with col3:
         st.metric(label="直近判定グレード", value=str(latest_row["grade"] or "A"))
 
     st.divider()
 
-    # 2. 管理図グラフ（Altair）
+    # 2. 推移グラフ（Altair）
     chart_base = alt.Chart(df).encode(
         x=alt.X("exam_date:T", title="検査年月日", axis=alt.Axis(format="%Y-%m-%d")),
     )
@@ -101,7 +101,7 @@ def render_vital_trends_view() -> None:
     st.altair_chart(final_chart, use_container_width=True)
 
     # 3. 履歴テーブル
-    st.subheader("経年測定履歴一覧")
+    st.subheader("経年検査データ一覧")
     display_df = df[["exam_date", "val", "unit", "grade", "ref_min", "ref_max", "category"]].copy()
     display_df["exam_date"] = display_df["exam_date"].dt.strftime("%Y-%m-%d")
     display_df = display_df.rename(

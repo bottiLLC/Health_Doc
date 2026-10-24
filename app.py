@@ -20,7 +20,7 @@ from src.views.vital_trends import render_vital_trends_view
 
 # Streamlit Page Configuration
 st.set_page_config(
-    page_title="身体保全マネジメントシステム (Health CMMS)",
+    page_title="パーソナル健康管理システム (Health Management System)",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -34,17 +34,17 @@ init_db()
 # ゾーン1: サイドバー (設定・データ保護バックアップ)
 # -------------------------------------------------------------
 with st.sidebar:
-    st.header("🏥 Health CMMS")
-    st.caption("身体保全マネジメントシステム v0.1.0")
+    st.header("🏥 健康管理システム")
+    st.caption("パーソナル健康管理システム v0.1.0")
     st.divider()
 
     # データベース状態表示
-    st.subheader("システム稼働状況")
+    st.subheader("データ管理状況")
     vital_count = len(fetch_all_vital_metrics())
     imaging_count = len(fetch_all_imaging_events())
-    st.write(f"- DB状態: **正常稼働** (`{DB_PATH.name}`)")
-    st.write(f"- 登録生化学レコード: **{vital_count} 件**")
-    st.write(f"- 登録画像検査イベント: **{imaging_count} 件**")
+    st.write(f"- データベース: **正常稼働** (`{DB_PATH.name}`)")
+    st.write(f"- 登録生化学データ: **{vital_count} 件**")
+    st.write(f"- 登録精密画像検査: **{imaging_count} 件**")
 
     # 標準バックアップマネージャー (Python-backup-script 準拠)
     st.divider()
@@ -74,14 +74,14 @@ with st.sidebar:
 # -------------------------------------------------------------
 # ゾーン2 & 3: メインワークスペース (ヘッダー & タブナビゲーション)
 # -------------------------------------------------------------
-st.title("🏥 身体保全マネジメントシステム（Health CMMS）")
-st.caption("予防保全工学アプローチによる年次定常健診とイベント駆動型精密画像検査の統合リコール基盤")
+st.title("🏥 パーソナル健康管理システム（Health Management System）")
+st.caption("定期健康診断（時系列血液検査）と精密画像検査の統合管理・次回受診案内システム")
 
 tab_dash, tab_trend, tab_ledger, tab_import = st.tabs([
-    "📊 総合保全ダッシュボード",
-    "📈 年次生化学トレンド",
-    "🗂️ 部位別カルテ & 検査PDF",
-    "📥 データ投入治具",
+    "📊 総合健康ダッシュボード",
+    "📈 年次血液・健康診断トレンド",
+    "🗂️ 部位別検査カルテ & 検査PDF",
+    "📥 検査結果の取り込み・登録",
 ])
 
 with tab_dash:

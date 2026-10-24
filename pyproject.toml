@@ -1,7 +1,7 @@
 [project]
 name = "health-cmms"
 version = "0.1.0"
-description = "身体保全マネジメントシステム（ヘルスケアCMMS）"
+description = "パーソナル健康管理システム（定期健診・精密画像検査統合管理）"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

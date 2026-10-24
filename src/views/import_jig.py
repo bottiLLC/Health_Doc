@@ -20,9 +20,9 @@ from src.seed_data import load_seed_data
 
 
 def render_import_jig_view() -> None:
-    """View 4: データ投入治具（Gemini自動パース & キャッシュステートマシン）。"""
-    st.subheader("データ投入治具（PDF自動パース & コミット）")
-    st.caption("PDFレポートをアップロードし、Gemini 2.5 Flashで構造化抽出・プレビュー確認・DB登録")
+    """View 4: 検査結果の自動取り込み・登録。"""
+    st.subheader("検査結果の取り込み・登録")
+    st.caption("健診・検査結果のPDFをアップロードし、AI解析により自動抽出・内容確認・データベース登録")
 
     # セッションステートの初期化
     if "uploaded_file_hash" not in st.session_state:
@@ -32,15 +32,15 @@ def render_import_jig_view() -> None:
     if "uploaded_pdf_bytes" not in st.session_state:
         st.session_state["uploaded_pdf_bytes"] = None
 
-    # 実機サンプル一括ロード治具（デモ・検証用）
-    with st.expander("⚡ クイックアクション: 実機4種サンプルデータをDBへ再ロード", expanded=False):
-        st.write("添付された4件の実データ（CT・DWIBS・大腸内視鏡・人間ドック3年分）を一括初期化・再ロードします。")
-        if st.button("実機サンプルデータを一括ロード実行", type="secondary"):
-            with st.spinner("サンプルデータ登録中..."):
+    # 実機サンプル一括登録機能（デモ・動作確認用）
+    with st.expander("⚡ クイックアクション: 4種のサンプル検査結果を一括登録", expanded=False):
+        st.write("添付された4件の実データ（CT・DWIBS・大腸内視鏡・人間ドック3年分）を一括初期化・再登録します。")
+        if st.button("サンプル検査結果を一括登録実行", type="secondary"):
+            with st.spinner("検査結果データを登録中..."):
                 counts = load_seed_data()
             st.success(
-                f"登録完了: 生化学メトリクス {counts['vital_metrics_count']} 件, "
-                f"画像検査 {counts['imaging_events_count']} 件"
+                f"登録完了: 生化学検査データ {counts['vital_metrics_count']} 件, "
+                f"精密画像検査 {counts['imaging_events_count']} 件"
             )
             st.rerun()
 
@@ -57,7 +57,7 @@ def render_import_jig_view() -> None:
         if manual_key:
             active_api_key = manual_key.strip()
         else:
-            st.info("💡 PDF解析を実行するには Gemini API キーが必要です。")
+            st.info("💡 PDFの自動解析を実行するには Gemini API キーが必要です。")
 
     # 2. PDFファイルアップローダー
     uploaded_file = st.file_uploader(
@@ -79,26 +79,26 @@ def render_import_jig_view() -> None:
             if not active_api_key:
                 st.error("Gemini APIキーを入力してください。")
             else:
-                with st.spinner("Gemini 2.5 Flash で PDF を高速構造化解析中..."):
+                with st.spinner("AIによるPDF解析中..."):
                     try:
                         result = extract_health_doc_from_pdf(file_bytes, api_key=active_api_key)
                         st.session_state["extraction_result"] = result
-                        st.toast("PDF 解析が完了しました！")
+                        st.toast("PDFの解析が完了しました！")
                     except Exception as e:
                         st.error(f"解析エラー: {e!s}")
 
-    # 3. 抽出結果のプレビュー & コミットフォーム
+    # 3. 抽出結果のプレビュー & 登録確認フォーム
     ext_result: HealthDocExtractionResult | None = st.session_state.get("extraction_result")
     if ext_result is not None:
         st.subheader("抽出結果プレビュー & 確定登録")
 
         with st.form("commit_form", clear_on_submit=False):
-            st.info(f"書類判別結果: **{ext_result.doc_type}**")
+            st.info(f"書類種別の自動判別結果: **{ext_result.doc_type}**")
 
             # A. 年次ドック・生化学データ
             if ext_result.checkup_data:
                 cd = ext_result.checkup_data
-                st.markdown("#### 1. 年次健診・生化学メトリクス")
+                st.markdown("#### 1. 定期健診・生化学検査データ")
                 col_c1, col_c2 = st.columns(2)
                 with col_c1:
                     st.text_input("受診日 (YYYY-MM-DD)", value=cd.exam_date, disabled=True)
@@ -111,14 +111,14 @@ def render_import_jig_view() -> None:
             # B. 単一画像検査データ
             if ext_result.imaging_data:
                 im = ext_result.imaging_data
-                st.markdown("#### 画像・精密検査データ")
+                st.markdown("#### 精密画像・内視鏡検査データ")
                 col_i1, col_i2, col_i3 = st.columns(3)
                 with col_i1:
                     st.text_input("検査日", value=im.exam_date, disabled=True)
-                    st.text_input("モダリティ", value=im.modality, disabled=True)
+                    st.text_input("検査種別", value=im.modality, disabled=True)
                 with col_i2:
-                    st.text_input("部位", value=im.target_region, disabled=True)
-                    st.text_input("医療機関", value=im.clinic_name, disabled=True)
+                    st.text_input("検査部位", value=im.target_region, disabled=True)
+                    st.text_input("受診医療機関", value=im.clinic_name, disabled=True)
                 with col_i3:
                     st.text_input("判定ステータス", value=im.status_flag, disabled=True)
                     st.text_input("該当ページ", value=str(im.pdf_page or 1), disabled=True)
@@ -128,17 +128,17 @@ def render_import_jig_view() -> None:
 
             # C. 内包された画像検査データ
             if ext_result.embedded_imaging_events:
-                st.markdown(f"#### 2. ドック内包精密検査 ({len(ext_result.embedded_imaging_events)} 件)")
+                st.markdown(f"#### 2. 人間ドック内包の精密画像検査 ({len(ext_result.embedded_imaging_events)} 件)")
                 for _idx, emb in enumerate(ext_result.embedded_imaging_events):
                     st.write(
                         f"- **{emb.modality}** ({emb.target_region}) | "
                         f"所見: {emb.primary_findings} [{emb.status_flag}] | P.{emb.pdf_page or 1}"
                     )
 
-            submit_commit = st.form_submit_button("データベースへ登録 & PDFをアーカイブ保存", type="primary")
+            submit_commit = st.form_submit_button("検査結果をデータベースへ登録・原本保存", type="primary")
 
         if submit_commit:
-            with st.spinner("データベースへコミット中..."):
+            with st.spinner("データベースへ登録中..."):
                 pdf_bytes_to_save = st.session_state.get("uploaded_pdf_bytes")
 
                 if ext_result.doc_type == "ANNUAL_CHECKUP" and ext_result.checkup_data:
@@ -187,7 +187,7 @@ def render_import_jig_view() -> None:
                     ledger_item = derive_organ_ledger_update(im_data, due)
                     upsert_organ_ledger(ledger_item)
 
-                st.success("データベースへのコミットおよびPDFアーカイブ保存が正常に完了しました！")
+                st.success("データベースへの登録および検査原本PDFの保存が正常に完了しました！")
                 st.session_state["extraction_result"] = None
                 st.session_state["uploaded_file_hash"] = None
                 st.rerun()

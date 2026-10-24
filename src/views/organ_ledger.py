@@ -8,13 +8,13 @@ from src.database import fetch_all_imaging_events
 
 
 def render_organ_ledger_view() -> None:
-    """View 3: 部位別カルテ & 検査PDFアーカイブ。"""
-    st.subheader("部位別カルテ & 検査PDFアーカイブ")
-    st.caption("モダリティ検査履歴（所見、判定、医師コメント）および原本PDFアーカイブ")
+    """View 3: 部位別検査カルテ & 検査PDF。"""
+    st.subheader("部位別検査カルテ & 検査PDF")
+    st.caption("精密画像・内視鏡検査の受診履歴（所見、判定、医師コメント）および原本PDF")
 
     events = fetch_all_imaging_events()
     if not events:
-        st.info("画像検査データがありません。「データ投入治具」からPDFをインポートしてください。")
+        st.info("画像検査データがありません。「検査結果の取り込み・登録」タブからPDFを登録してください。")
         return
 
     # 部位リストの取得
@@ -53,7 +53,7 @@ def render_organ_ledger_view() -> None:
                     st.write("**医師コメント / アドバイス:**")
                     st.text(ev["raw_comment"])
             with col_body2:
-                st.metric(label="動的算出 次回推奨日", value=ev["dynamic_next_due"])
+                st.metric(label="次回受診推奨時期", value=ev["dynamic_next_due"])
                 if ev.get("pdf_page"):
                     st.caption(f"📄 元PDF参照ページ: **P.{ev['pdf_page']}**")
 
