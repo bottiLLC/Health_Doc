@@ -14,7 +14,7 @@ def test_load_seed_data_execution() -> None:
 
         assert counts["vital_metrics_count"] == 79
         assert counts["qualitative_items_count"] == 103
-        assert counts["imaging_events_count"] == 6
+        assert counts["imaging_events_count"] == 7
 
         # 聴力や眼底の個別所見が正しく入っているか検証
         hearing = fetch_all_qualitative_items(category="聴力", exam_date="2026-04-22", target_path=test_db)
@@ -31,3 +31,16 @@ def test_load_seed_data_execution() -> None:
         # 総合判定
         summaries = fetch_all_qualitative_items(is_summary=True, target_path=test_db)
         assert len(summaries) >= 20
+
+        # 5大管理項目の完全生成を検証
+        from src.database import fetch_managed_timeline_summary
+
+        managed = fetch_managed_timeline_summary(target_path=test_db)
+        assert len(managed) == 5
+        assert [m.modality for m in managed] == [
+            "人間ドック(胃カメラ、腹部超音波を含む)",
+            "脳MRI/MRA",
+            "大腸カメラ",
+            "DWIBS",
+            "心臓CT",
+        ]

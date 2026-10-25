@@ -5,15 +5,68 @@ from typing import Final, Literal
 from pydantic import BaseModel, Field
 
 ModalityType = Literal[
-    "大腸内視鏡",
+    "人間ドック(胃カメラ、腹部超音波を含む)",
     "脳MRI/MRA",
+    "大腸カメラ",
     "DWIBS",
+    "心臓CT",
+    "大腸内視鏡",
     "胸腹部CT",
     "胃カメラ",
+    "上部消化管内視鏡",
     "腹部エコー",
+    "超音波",
     "定期健康診断",
+    "人間ドック",
     "その他",
 ]
+
+# 保全ダッシュボードで厳格に管理する5大管理項目リテラル型
+ManagedInspectionType = Literal[
+    "人間ドック(胃カメラ、腹部超音波を含む)",
+    "脳MRI/MRA",
+    "大腸カメラ",
+    "DWIBS",
+    "心臓CT",
+]
+
+# 5大管理項目の順序固定マスター定義
+MANAGED_INSPECTION_ITEMS: Final[tuple[ManagedInspectionType, ...]] = (
+    "人間ドック(胃カメラ、腹部超音波を含む)",
+    "脳MRI/MRA",
+    "大腸カメラ",
+    "DWIBS",
+    "心臓CT",
+)
+
+# 生モダリティ・表記ゆれから5大管理項目への確定写像辞書
+MODALITY_CANONICAL_MAP: Final[dict[str, ManagedInspectionType]] = {
+    "人間ドック(胃カメラ、腹部超音波を含む)": "人間ドック(胃カメラ、腹部超音波を含む)",
+    "人間ドック": "人間ドック(胃カメラ、腹部超音波を含む)",
+    "定期健康診断": "人間ドック(胃カメラ、腹部超音波を含む)",
+    "胃カメラ": "人間ドック(胃カメラ、腹部超音波を含む)",
+    "上部消化管内視鏡": "人間ドック(胃カメラ、腹部超音波を含む)",
+    "腹部エコー": "人間ドック(胃カメラ、腹部超音波を含む)",
+    "超音波": "人間ドック(胃カメラ、腹部超音波を含む)",
+    "脳MRI/MRA": "脳MRI/MRA",
+    "頭部MRI": "脳MRI/MRA",
+    "大腸カメラ": "大腸カメラ",
+    "大腸内視鏡": "大腸カメラ",
+    "DWIBS": "DWIBS",
+    "心臓CT": "心臓CT",
+    "胸腹部CT": "心臓CT",
+}
+
+# 基準インターバル定義（年）
+MANAGED_BASE_INTERVALS: Final[dict[ManagedInspectionType, float]] = {
+    "人間ドック(胃カメラ、腹部超音波を含む)": 1.0,
+    "脳MRI/MRA": 3.0,
+    "大腸カメラ": 5.0,
+    "DWIBS": 2.0,
+    "心臓CT": 5.0,
+}
+
+AlertCategoryType = Literal["受診期限超過", "半年以内に受診推奨", "受診間隔内 (順調)", "受診開始待機"]
 
 StatusFlagType = Literal[
     "CLEAR",
@@ -120,7 +173,6 @@ def normalize_category_name(raw_name: str) -> str:
 
 
 class VitalMetricItem(BaseModel):
-
     """年次健診の単一測定値モデル（Table A: vital_metrics）。"""
 
     category: str = Field(description="検査カテゴリ（例: 肝機能, 脂質, 糖代謝, 身体計測, 血液学, 腎機能, 痛風）")
@@ -214,6 +266,20 @@ class InspectionTimelineItem(BaseModel):
     alert_level: Literal["CRITICAL", "UPCOMING", "CRUISING"]
 
 
+class ManagedTimelineEntry(BaseModel):
+    """5大管理項目に特化したタイムライン集約DTO。"""
+
+    modality: ManagedInspectionType = Field(description="5大管理項目名")
+    target_region: str = Field(description="対象部位")
+    last_exam_date: str | None = Field(default=None, description="直近検査日 (YYYY-MM-DD)")
+    dynamic_next_due: str = Field(description="次回推奨受診日 (YYYY-MM-DD)")
+    status_flag: str = Field(default="CLEAR", description="所見ステータス")
+    days_remaining: int = Field(description="次回までの日数")
+    alert_category: AlertCategoryType = Field(description="状態区分")
+    clinic_name: str = Field(default="未受診", description="受診医療機関")
+    primary_findings: str = Field(default="", description="主要所見")
+
+
 class RegisteredFileRecord(BaseModel):
     """登録済み検査原本ファイルのメタデータモデル（Table: registered_files）。"""
 
@@ -227,4 +293,3 @@ class RegisteredFileRecord(BaseModel):
     registered_at: str = Field(description="登録日時 (YYYY-MM-DD HH:MM:SS)")
     file_size: int = Field(description="ファイルサイズ (bytes)")
     storage_path: str = Field(description="ディスク保存先パス")
-

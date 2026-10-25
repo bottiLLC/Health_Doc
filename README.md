@@ -24,7 +24,12 @@ uv run streamlit run app.py
 ```
 
 ## Architecture & Features
-- **動的受診推奨時期エンジン (Recall Engine)**: 前回検査日と所見判定ステータス（CLEAR, BENIGN_STABLE, WATCH_SHORTENED, ACTION_REQUIRED）から次回受診日を動的算出し、ガントチャートで可視化。
+- **厳格な5大保全管理項目 (Recall Engine)**:
+  - **人間ドック(胃カメラ、腹部超音波を含む)**: 1年毎（年次血液・定性判定・胃カメラ・腹部超音波を包含一元化）
+  - **脳MRI/MRA**: 3年毎（ドック内包および単独検査の統合集約）
+  - **大腸カメラ**: 5年毎（ポリープ切除等の医師指示・短縮所見時は1年後等を動的優先）
+  - **DWIBS**: 2年毎（全身がんドック）
+  - **心臓CT**: 2028年から5年毎（2028年開始境界ロジックによる待機制御）
 - **生化学メトリクス名寄せ・時系列分析**: 表記ゆれクランプ辞書（`STANDARD_METRIC_NAMES`）による名寄せと基準値レンジ破線を伴う経年折れ線チャート。
 - **マルチモーダル医療ドキュメント構造化抽出**: Gemini 3.8 Flash (`thinking_level: medium`) の Structured Outputs により、人間ドックPDFおよび各科画像レポートから検査値を自動抽出。
 - **完全隔離型データ保護 & 整合性検証バックアップ**: `./data` 領域の自動ZIP圧縮、`testzip()` 破損検知、アトミック確定移動ルーチン（`backup_manager.py`）の内蔵。

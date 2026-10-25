@@ -37,6 +37,7 @@ st.set_page_config(
 ensure_directories()
 init_db()
 
+
 @st.cache_data
 def get_db_summary_counts() -> tuple[int, int, int, int]:
     """データベース登録件数の集計結果をキャッシュ取得。"""
@@ -64,7 +65,6 @@ with st.sidebar:
     st.write(f"- 登録生化学データ: **{vital_count} 件**")
     st.write(f"- 登録定性・判定項目: **{qualitative_count} 件**")
     st.write(f"- 登録精密画像検査: **{imaging_count} 件**")
-
 
     # 標準バックアップマネージャー (Python-backup-script 準拠)
     st.divider()

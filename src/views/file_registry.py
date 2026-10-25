@@ -89,7 +89,9 @@ def render_file_registry_view() -> None:
         st.warning(f"⚠️ {len(selected_ids)} 件のファイルが選択されています。")
         col_del1, col_del2 = st.columns([3, 1])
         with col_del1:
-            st.write("※ 削除を実行すると、ファイル原本および紐付く全検査データ（生化学値・定性所見・画像記録）が完全に削除され、カルテ元帳が再集計されます。")
+            st.write(
+                "※ 削除を実行すると、ファイル原本および紐付く全検査データ（生化学値・定性所見・画像記録）が完全に削除され、カルテ元帳が再集計されます。"
+            )
         with col_del2:
             if st.button("🗑️ 選択ファイルを完全削除", type="primary", use_container_width=True):
                 with st.spinner("自動安全バックアップを作成し、カスケード削除と元帳の再同期を実行中..."):

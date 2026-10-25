@@ -4,12 +4,15 @@ import hashlib
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager, suppress
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from src.config import DB_PATH, PDF_DIR, ensure_directories
 from src.models import (
+    MODALITY_CANONICAL_MAP,
     ImagingEventPayload,
+    ManagedTimelineEntry,
     OrganLedgerItem,
     QualitativeCheckupItem,
     RegisteredFileRecord,
@@ -17,6 +20,7 @@ from src.models import (
     normalize_category_name,
     normalize_metric_name,
 )
+from src.recall_engine import build_managed_timeline, compute_dynamic_next_due
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS registered_files (
@@ -141,6 +145,32 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
             cursor.execute(
                 "UPDATE vital_metrics SET category = ? WHERE category = ?",
                 (norm_cat, cat),
+            )
+
+    # 既存の検査モダリティ名の新体系マイグレーション（定期健康診断 -> 人間ドック(胃カメラ、腹部超音波を含む)、大腸内視鏡 -> 大腸カメラ）
+    cursor.execute(
+        "SELECT event_id, exam_date, modality, status_flag, raw_comment, dynamic_next_due FROM imaging_events"
+    )
+    rows = cursor.fetchall()
+    for row in rows:
+        eid = int(row["event_id"])
+        raw_mod = str(row["modality"])
+        e_date = str(row["exam_date"])
+        s_flag = str(row["status_flag"])
+        comment = str(row["raw_comment"] or "")
+        current_due = str(row["dynamic_next_due"])
+
+        new_mod = raw_mod
+        if raw_mod in ("定期健康診断", "人間ドック"):
+            new_mod = "人間ドック(胃カメラ、腹部超音波を含む)"
+        elif raw_mod == "大腸内視鏡":
+            new_mod = "大腸カメラ"
+
+        new_due = compute_dynamic_next_due(e_date, new_mod, s_flag, comment)
+        if new_mod != raw_mod or new_due != current_due:
+            cursor.execute(
+                "UPDATE imaging_events SET modality = ?, dynamic_next_due = ? WHERE event_id = ?",
+                (new_mod, new_due, eid),
             )
     conn.commit()
 
@@ -290,7 +320,6 @@ def fetch_all_registered_files(
         return [dict(row) for row in cursor.fetchall()]
 
 
-
 def insert_vital_metrics(
     metrics: list[VitalMetricItem],
     exam_date: str,
@@ -365,7 +394,6 @@ def insert_imaging_event(
         )
         conn.commit()
         return int(cursor.lastrowid or 0)
-
 
 
 def upsert_organ_ledger(
@@ -560,10 +588,18 @@ def fetch_latest_imaging_events_by_modality(
     ORDER BY dynamic_next_due ASC, exam_date DESC
     """
     with get_db_connection(target_path) as conn:
-
         cursor = conn.cursor()
         cursor.execute(query)
         return [dict(row) for row in cursor.fetchall()]
+
+
+def fetch_managed_timeline_summary(
+    target_path: Path | str | None = None,
+    current_date: date | None = None,
+) -> list[ManagedTimelineEntry]:
+    """5大管理項目に特化した最新タイムラインDTOリスト（未受診項目を含む5行固定）を取得。"""
+    latest_events = fetch_latest_imaging_events_by_modality(target_path)
+    return build_managed_timeline(latest_events, current_date=current_date)
 
 
 def fetch_latest_exam_for_modality_or_region(
@@ -572,15 +608,22 @@ def fetch_latest_exam_for_modality_or_region(
     target_path: Path | str | None = None,
 ) -> dict[str, Any] | None:
     """指定されたモダリティまたは対象部位の既存の最新検査イベント（前回検査日照合用）を取得。"""
-    query = """
+    can_mod = MODALITY_CANONICAL_MAP.get(modality.strip(), modality.strip())
+    aliases = [k for k, v in MODALITY_CANONICAL_MAP.items() if v == can_mod]
+    if modality.strip() not in aliases:
+        aliases.append(modality.strip())
+
+    placeholders = ",".join(["?"] * len(aliases))
+    query = f"""
     SELECT * FROM imaging_events 
-    WHERE modality = ? OR target_region = ?
+    WHERE modality IN ({placeholders}) OR target_region = ?
     ORDER BY exam_date DESC, event_id DESC
     LIMIT 1
     """
+    params = list(aliases) + [target_region]
     with get_db_connection(target_path) as conn:
         cursor = conn.cursor()
-        cursor.execute(query, (modality, target_region))
+        cursor.execute(query, params)
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -594,6 +637,8 @@ ORGAN_REGION_MAP: dict[str, str] = {
     "胃": "胃",
     "上部消化管": "胃",
     "腹部": "肝臓",
+    "心臓": "心臓",
+    "冠動脈": "心臓",
 }
 
 
@@ -711,4 +756,3 @@ def fetch_organ_ledger(
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM organ_status_ledger ORDER BY next_action_due ASC")
         return [dict(row) for row in cursor.fetchall()]
-

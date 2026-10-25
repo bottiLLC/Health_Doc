@@ -246,3 +246,58 @@ def test_annual_checkup_cascade() -> None:
         assert len(files_after) == 0
         ledger_after = fetch_organ_ledger(db_path)
         assert len(ledger_after) == 0
+
+
+def test_modality_migration_and_managed_timeline_integration() -> None:
+    """旧モダリティ名（定期健康診断、大腸内視鏡）の自動マイグレーションと5大管理項目集約を検証。"""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        db_path = Path(tmp_dir) / "test_migration.db"
+        init_db(db_path)
+
+        # 旧モダリティのレコードを手動投入
+        im_annual = ImagingEventPayload(
+            exam_date="2025-04-20",
+            modality="定期健康診断",
+            target_region="全身",
+            clinic_name="旧健診センター",
+            status_flag="CLEAR",
+            primary_findings="年次健診",
+        )
+        insert_imaging_event(im_annual, "2026-04-20", target_path=db_path)
+
+        im_colon = ImagingEventPayload(
+            exam_date="2025-05-10",
+            modality="大腸内視鏡",
+            target_region="全大腸",
+            clinic_name="内視鏡クリニック",
+            status_flag="CLEAR",
+            primary_findings="ポリープなし",
+        )
+        insert_imaging_event(im_colon, "2028-05-10", target_path=db_path)  # 旧3年周期
+
+        # マイグレーション実行（init_dbの再呼出）
+        init_db(db_path)
+
+        # 5大管理項目タイムライン取得
+        from datetime import date
+
+        from src.database import fetch_all_imaging_events, fetch_managed_timeline_summary
+
+        events = fetch_all_imaging_events(db_path)
+        mod_names = [e["modality"] for e in events]
+        assert "人間ドック(胃カメラ、腹部超音波を含む)" in mod_names
+        assert "大腸カメラ" in mod_names
+        assert "定期健康診断" not in mod_names
+        assert "大腸内視鏡" not in mod_names
+
+        # 大腸カメラが5年（2030-05-10）へ再計算されたことを検証
+        colon_event = next(e for e in events if e["modality"] == "大腸カメラ")
+        assert colon_event["dynamic_next_due"] == "2030-05-10"
+
+        # 5行固定集約の検証（2026年基準）
+        summary = fetch_managed_timeline_summary(db_path, current_date=date(2026, 10, 25))
+        assert len(summary) == 5
+
+        heart_entry = next(s for s in summary if s.modality == "心臓CT")
+        assert heart_entry.alert_category == "受診開始待機"
+        assert heart_entry.dynamic_next_due == "2028-04-01"

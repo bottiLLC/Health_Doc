@@ -125,3 +125,70 @@ def test_import_jig_view_session_state_lifecycle(monkeypatch: pytest.MonkeyPatch
     assert "registration_success_msg" not in fake_session_state
     assert fake_session_state["uploader_key"] == 0
     assert fake_session_state["uploaded_file_hash"] is None
+
+
+def test_dashboard_view_renders_5_managed_items(monkeypatch: pytest.MonkeyPatch) -> None:
+    """5大管理項目および受診開始待機ステータスを含むダッシュボードが正常に描画されることを検証。"""
+    mock_st = MagicMock()
+    mock_st.columns.return_value = [MagicMock() for _ in range(5)]
+    mock_st.radio.return_value = "5大管理項目の最新受診予定のみ表示（推奨）"
+    monkeypatch.setattr("src.views.dashboard.st", mock_st)
+
+    from src.models import ManagedTimelineEntry
+
+    mock_timeline = [
+        ManagedTimelineEntry(
+            modality="人間ドック(胃カメラ、腹部超音波を含む)",
+            target_region="全身",
+            last_exam_date="2026-04-22",
+            dynamic_next_due="2027-04-22",
+            status_flag="CLEAR",
+            days_remaining=180,
+            alert_category="半年以内に受診推奨",
+        ),
+        ManagedTimelineEntry(
+            modality="脳MRI/MRA",
+            target_region="脳",
+            last_exam_date="2026-04-22",
+            dynamic_next_due="2029-04-22",
+            status_flag="CLEAR",
+            days_remaining=900,
+            alert_category="受診間隔内 (順調)",
+        ),
+        ManagedTimelineEntry(
+            modality="大腸カメラ",
+            target_region="全大腸",
+            last_exam_date="2026-09-16",
+            dynamic_next_due="2031-09-16",
+            status_flag="CLEAR",
+            days_remaining=1800,
+            alert_category="受診間隔内 (順調)",
+        ),
+        ManagedTimelineEntry(
+            modality="DWIBS",
+            target_region="全身",
+            last_exam_date="2026-05-02",
+            dynamic_next_due="2028-05-02",
+            status_flag="CLEAR",
+            days_remaining=550,
+            alert_category="受診間隔内 (順調)",
+        ),
+        ManagedTimelineEntry(
+            modality="心臓CT",
+            target_region="心臓",
+            last_exam_date=None,
+            dynamic_next_due="2028-04-01",
+            status_flag="CLEAR",
+            days_remaining=520,
+            alert_category="受診開始待機",
+        ),
+    ]
+    monkeypatch.setattr("src.views.dashboard._load_dashboard_data", lambda: (mock_timeline, [], []))
+
+    from src.views.dashboard import render_dashboard_view
+
+    render_dashboard_view()
+
+    mock_st.subheader.assert_any_call("総合健康ダッシュボード")
+    mock_st.altair_chart.assert_called_once()
+    assert mock_st.metric.call_count == 5

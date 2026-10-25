@@ -96,17 +96,15 @@ def extract_health_doc_from_pdf(
     try:
         response = client.models.generate_content(
             model="gemini-3.8-flash",
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        pdf_part,
-                        types.Part.from_text(
-                            text="健康診断・検査レポートPDFから指示に従ってデータを抽出してください。"
-                        ),
-                    ],
-                )
-            ],
+            contents=types.Content(
+                role="user",
+                parts=[
+                    pdf_part,
+                    types.Part.from_text(
+                        text="健康診断・検査レポートPDFから指示に従ってデータを抽出してください。"
+                    ),
+                ],
+            ),
             config=types.GenerateContentConfig(
                 thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MEDIUM),
                 system_instruction=EXTRACTION_SYSTEM_INSTRUCTION,

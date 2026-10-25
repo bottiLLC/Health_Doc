@@ -40,7 +40,6 @@ def render_import_jig_view() -> None:
     # ファイル一覧タブへの案内
     st.info("💡 登録済みの検査原本ファイル一覧の確認や削除は「ファイル一覧」タブをご利用ください。")
 
-
     # セッションステートの初期化
     if "uploaded_file_hash" not in st.session_state:
         st.session_state["uploaded_file_hash"] = None
@@ -127,25 +126,30 @@ def render_import_jig_view() -> None:
                 with col_c2:
                     st.text_input("受診医療機関", value=cd.clinic_name, disabled=True)
 
-                # 定期健康診断（総合）の既存前回検査日との照合
-                existing_annual = fetch_latest_exam_for_modality_or_region("定期健康診断", "全身")
+                # 人間ドック（総合・胃カメラ・腹部超音波含む）の既存前回検査日との照合
+                existing_annual = fetch_latest_exam_for_modality_or_region(
+                    "人間ドック(胃カメラ、腹部超音波を含む)", "全身"
+                )
                 if existing_annual:
                     old_date = existing_annual["exam_date"]
                     if cd.exam_date > old_date:
                         st.success(
-                            f"✅ 【定期健診（総合）】既存の前回検査日（**{old_date}**）より新しい受診日（**{cd.exam_date}**）です。"
+                            f"✅ 【人間ドック(胃カメラ、腹部超音波を含む)】既存の前回検査日（**{old_date}**）より新しい受診日（**{cd.exam_date}**）です。"
                             f"次回推奨日は新たに 1年後（**{cd.exam_date[:4]}年の同時期**）へ更新されます。"
                         )
                     elif cd.exam_date < old_date:
                         st.info(
-                            f"ℹ️ 【定期健診（総合）】既存の最新検査日（**{old_date}**）より過去の受診記録です。"
+                            f"ℹ️ 【人間ドック(胃カメラ、腹部超音波を含む)】既存の最新検査日（**{old_date}**）より過去の受診記録です。"
                             f"検査履歴として蓄積されますが、最新の前回検査日（**{old_date}**）は維持されます。"
                         )
                     else:
-                        st.warning(f"⚠️ 【定期健診（総合）】同日（**{cd.exam_date}**）の健診記録が既に存在します。上書き更新されます。")
+                        st.warning(
+                            f"⚠️ 【人間ドック(胃カメラ、腹部超音波を含む)】同日（**{cd.exam_date}**）の健診記録が既に存在します。上書き更新されます。"
+                        )
                 else:
-                    st.info("🆕 【定期健診（総合）】システム初の定期健診記録として登録されます。次回予定は1年後となります。")
-
+                    st.info(
+                        "🆕 【人間ドック(胃カメラ、腹部超音波を含む)】システム初のドック記録として登録されます。次回予定は1年後となります。"
+                    )
 
                 metrics_df = pd.DataFrame([m.model_dump() for m in cd.metrics])
                 st.dataframe(metrics_df, use_container_width=True, hide_index=True)
@@ -217,7 +221,9 @@ def render_import_jig_view() -> None:
                         if emb.exam_date > old_dt:
                             st.caption(f"  └ 既存前回検査日（{old_dt}）を今回の検査日（{emb.exam_date}）へ更新します。")
                         elif emb.exam_date < old_dt:
-                            st.caption(f"  └ 既存の最新検査日（{old_dt}）より過去の受診記録です（過去履歴として保存）。")
+                            st.caption(
+                                f"  └ 既存の最新検査日（{old_dt}）より過去の受診記録です（過去履歴として保存）。"
+                            )
 
             force_overwrite = st.checkbox(
                 "過去日付の検査記録であっても、既存の最新検査日・次回受診日を強制的にこの日付で上書きする（通常はOFF）",
@@ -263,29 +269,34 @@ def render_import_jig_view() -> None:
 
                     # 3. 定性検査・所見・判定項目の登録
                     if ext_result.checkup_data.qualitative_items:
-                        insert_qualitative_items(
-                            ext_result.checkup_data.qualitative_items, c_date, file_id=new_file_id
-                        )
+                        insert_qualitative_items(ext_result.checkup_data.qualitative_items, c_date, file_id=new_file_id)
 
-                    # 4. 定期健康診断（総合）イベント自体の登録（次回推奨日: 1年後）
+                    # 4. 人間ドック(胃カメラ、腹部超音波を含む) イベント自体の登録（次回推奨日: 1年後）
                     annual_event = ImagingEventPayload(
                         exam_date=c_date,
-                        modality="定期健康診断",
+                        modality="人間ドック(胃カメラ、腹部超音波を含む)",
                         target_region="全身",
                         clinic_name=c_clinic,
                         status_flag="CLEAR",
-                        primary_findings="年次定期健康診断（生化学・身体測定・定性判定）",
-                        raw_comment="定期健康診断（次回推奨受診時期: 1年後）",
+                        primary_findings="人間ドック（生化学・身体測定・定性判定・胃カメラ・腹部超音波包含）",
+                        raw_comment="人間ドック（次回推奨受診時期: 1年後）",
                         pdf_page=1,
                         suggested_interval_years=1.0,
                     )
-                    annual_due = compute_dynamic_next_due(c_date, "定期健康診断", "CLEAR", suggested_interval_years=1.0)
+                    annual_due = compute_dynamic_next_due(
+                        c_date,
+                        "人間ドック(胃カメラ、腹部超音波を含む)",
+                        "CLEAR",
+                        suggested_interval_years=1.0,
+                    )
                     insert_imaging_event(annual_event, annual_due, str(saved_pdf_path), file_id=new_file_id)
                     annual_ledger = derive_organ_ledger_update(annual_event, annual_due)
                     if force_overwrite:
                         upsert_organ_ledger(annual_ledger)
                     else:
-                        existing_a = fetch_latest_exam_for_modality_or_region("定期健康診断", "全身")
+                        existing_a = fetch_latest_exam_for_modality_or_region(
+                            "人間ドック(胃カメラ、腹部超音波を含む)", "全身"
+                        )
                         if not existing_a or c_date >= existing_a["exam_date"]:
                             upsert_organ_ledger(annual_ledger)
 

@@ -9,8 +9,8 @@ from __future__ import annotations
 import argparse
 import ast
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent
 if str(_ROOT) not in sys.path:
@@ -18,26 +18,28 @@ if str(_ROOT) not in sys.path:
 
 DocstringNode = ast.AsyncFunctionDef | ast.FunctionDef | ast.ClassDef | ast.Module
 
-EXCLUDED_DIRS: frozenset[str] = frozenset({
-    ".git",
-    ".hg",
-    ".svn",
-    ".venv",
-    "venv",
-    "env",
-    "__pycache__",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".pytest_cache",
-    ".context",
-    ".agents",
-    "node_modules",
-    "build",
-    "dist",
-    ".tox",
-    ".idea",
-    ".vscode",
-})
+EXCLUDED_DIRS: frozenset[str] = frozenset(
+    {
+        ".git",
+        ".hg",
+        ".svn",
+        ".venv",
+        "venv",
+        "env",
+        "__pycache__",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".pytest_cache",
+        ".context",
+        ".agents",
+        "node_modules",
+        "build",
+        "dist",
+        ".tox",
+        ".idea",
+        ".vscode",
+    }
+)
 
 
 def format_docstring(node: DocstringNode, indent: str = "    ") -> list[str]:

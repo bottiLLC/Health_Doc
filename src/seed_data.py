@@ -701,6 +701,21 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
             pdf_file.write_bytes(b"%PDF-1.4\n% Health CMMS Stored Medical Report Artifact\n")
 
     events = [
+        # 人間ドック総合（生化学・定性・胃カメラ・腹部超音波包含）
+        (
+            ImagingEventPayload(
+                exam_date="2026-04-22",
+                modality="人間ドック(胃カメラ、腹部超音波を含む)",
+                target_region="全身",
+                clinic_name="medock 総合健診クリニック",
+                status_flag="CLEAR",
+                primary_findings="年次人間ドック（生化学・身体測定・定性判定・胃カメラ・腹部超音波包含）",
+                raw_comment="人間ドック（次回推奨受診時期: 1年後）",
+                pdf_page=1,
+                suggested_interval_years=1.0,
+            ),
+            annual_pdf_path,
+        ),
         # ドック内包: 胃カメラ
         (
             ImagingEventPayload(
@@ -761,18 +776,18 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
             ),
             dwibs_pdf_path,
         ),
-        # 実機PDF 3: 大腸内視鏡
+        # 実機PDF 3: 大腸カメラ (5年周期)
         (
             ImagingEventPayload(
                 exam_date="2026-09-16",
-                modality="大腸内視鏡",
+                modality="大腸カメラ",
                 target_region="全大腸",
                 clinic_name="青葉台かなざわ内科・内視鏡クリニック",
                 status_flag="CLEAR",
                 primary_findings="回腸末端まで挿入、ポリープなし、外痔核のみ",
-                raw_comment="鎮静剤使用。回腸末端まで挿入。外痔核を認めるがポリープ等の病的病変なし（CLEAR）。",
+                raw_comment="鎮静剤使用。回腸末端まで挿入。外痔核を認めるがポリープ等の病的病変なし（CLEAR）。次回推奨: 5年後。",
                 pdf_page=1,
-                suggested_interval_years=3.0,
+                suggested_interval_years=5.0,
             ),
             colon_pdf_path,
         ),
@@ -787,7 +802,7 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
                 primary_findings="肝嚢胞（良性・典型例）",
                 raw_comment="肝臓に液体がたまった袋状の変化（肝嚢胞）が認められます。典型的な嚢胞で症状がなければ通常は経過観察となります。消化管、泌尿器、腹部大血管に異常なし。",
                 pdf_page=1,
-                suggested_interval_years=3.0,
+                suggested_interval_years=None,
             ),
             ct_pdf_path,
         ),
@@ -814,4 +829,3 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
         "qualitative_items_count": total_qualitative,
         "imaging_events_count": total_events,
     }
-
