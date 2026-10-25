@@ -7,19 +7,21 @@ import tempfile
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Final
 
-_ROOT_DIR = Path(__file__).resolve().parent
-_CONFIG_FILE = _ROOT_DIR / "data" / "backup_config.json"
-_DEFAULT_BACKUP_DIR = _ROOT_DIR / "backups"
+_ROOT: Final[Path] = Path(__file__).resolve().parent
+_CONFIG_FILE: Final[Path] = _ROOT / "data" / "backup_config.json"
+_DEFAULT_BACKUP_DIR: Final[Path] = _ROOT / "backups"
 
 
 def get_backup_dir() -> Path:
+    """Resolve active backup directory from config, env, or default."""
     if _CONFIG_FILE.exists():
         try:
             with open(_CONFIG_FILE, encoding="utf-8") as f:
                 data = json.load(f)
                 custom_path = data.get("backup_dir")
-                if custom_path:
+                if isinstance(custom_path, str) and custom_path:
                     return Path(custom_path).resolve()
         except (OSError, json.JSONDecodeError):
             pass
@@ -32,6 +34,7 @@ def get_backup_dir() -> Path:
 
 
 def set_backup_dir(target_dir: str) -> dict[str, str | bool]:
+    """Validate and persist target backup directory path."""
     path = Path(target_dir).resolve()
     try:
         path.mkdir(parents=True, exist_ok=True)
@@ -43,18 +46,19 @@ def set_backup_dir(target_dir: str) -> dict[str, str | bool]:
         return {"success": False, "message": f"保存先パスが無効、または書き込み権限がありません: {e!s}"}
 
 
-def run_backup(app_name: str = "health_cmms", source_dir: str = "./data") -> dict[str, str | bool]:
-    source_path = Path(source_dir).resolve()
+def run_backup(app_name: str = "app", source_dir: Path | str | None = None) -> dict[str, str | bool]:
+    """Create atomic, integrity-verified ZIP archive of persistent data directory."""
+    source_path = Path(source_dir).resolve() if source_dir else (_ROOT / "data").resolve()
+    now = datetime.now(UTC).astimezone()
+    ts_display = now.strftime("%Y-%m-%d %H:%M:%S")
 
-    # 1. Interlock: Source presence
     if not source_path.exists() or not any(source_path.iterdir()):
         return {
             "success": False,
-            "message": f"バックアップ対象が存在しないか空欄です: {source_dir}",
-            "timestamp": datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S"),
+            "message": f"バックアップ対象が存在しないか空欄です: {source_path!s}",
+            "timestamp": ts_display,
         }
 
-    # 2. Interlock: Destination resolution
     backup_dir = get_backup_dir()
     try:
         backup_dir.mkdir(parents=True, exist_ok=True)
@@ -62,35 +66,28 @@ def run_backup(app_name: str = "health_cmms", source_dir: str = "./data") -> dic
         return {
             "success": False,
             "message": f"保存先フォルダの作成に失敗しました: {e!s}",
-            "timestamp": datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": ts_display,
         }
 
-    now = datetime.now(UTC).astimezone()
-    timestamp_str = now.strftime("%Y%m%d_%H%M%S")
-    zip_filename = f"{app_name}_backup_{timestamp_str}.zip"
+    zip_filename = f"{app_name}_backup_{now.strftime('%Y%m%d_%H%M%S')}.zip"
     final_destination = backup_dir / zip_filename
 
-    # 3. Atomic processing in temp directory
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_zip = Path(tmp_dir) / zip_filename
-
         with zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
             for file_path in source_path.rglob("*"):
-                # Back up all persistent user data, documents, and configuration files
                 if file_path.is_file():
                     zipf.write(file_path, file_path.relative_to(source_path))
 
-        # 4. Integrity check (testzip)
         with zipfile.ZipFile(tmp_zip, "r") as zipf:
             corrupt = zipf.testzip()
             if corrupt is not None:
                 return {
                     "success": False,
                     "message": f"整合性チェック失敗（破損検知）: {corrupt}",
-                    "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+                    "timestamp": ts_display,
                 }
 
-        # 5. Atomic move with OS-level error protection
         file_size = tmp_zip.stat().st_size
         try:
             shutil.move(str(tmp_zip), str(final_destination))
@@ -98,16 +95,19 @@ def run_backup(app_name: str = "health_cmms", source_dir: str = "./data") -> dic
             return {
                 "success": False,
                 "message": f"バックアップファイルの確定移動に失敗しました: {e!s}",
-                "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "timestamp": ts_display,
             }
 
-    size_str = f"{file_size / (1024 * 1024):.2f} MB" if file_size >= 1024 * 1024 else f"{file_size / 1024:.2f} KB"
-
+    size_str = (
+        f"{file_size / (1024 * 1024):.2f} MB"
+        if file_size >= 1024 * 1024
+        else f"{file_size / 1024:.2f} KB"
+    )
     return {
         "success": True,
         "filename": zip_filename,
         "size": size_str,
         "destination": str(final_destination),
-        "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": ts_display,
         "message": f"バックアップ完了: {zip_filename} ({size_str})",
     }

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
+from src.config import get_managed_intervals
 from src.models import (
     MANAGED_INSPECTION_ITEMS,
     MODALITY_CANONICAL_MAP,
@@ -53,9 +54,6 @@ def compute_dynamic_next_due(
         算出された次回推奨日文字列 (YYYY-MM-DD)
     """
     exam_dt = datetime.strptime(exam_date_str, "%Y-%m-%d").date()
-
-    from src.config import get_managed_intervals
-
     intervals = base_intervals if base_intervals is not None else get_managed_intervals()
     canonical = MODALITY_CANONICAL_MAP.get(modality.strip(), "人間ドック(胃カメラ、腹部超音波を含む)")
     configured_interval = intervals.get(canonical, 1.0)

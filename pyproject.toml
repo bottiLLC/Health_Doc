@@ -10,6 +10,8 @@ dependencies = [
     "pydantic>=2.10.0",
     "pandas>=2.2.0",
     "altair>=5.5.0",
+    "structlog>=24.4.0",
+    "tenacity>=9.0.0",
 ]
 
 [dependency-groups]
@@ -27,7 +29,10 @@ exclude = [".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-ignore = ["EXE002", "E501", "E402"]
+ignore = ["EXE002"]
+
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.13"

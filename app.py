@@ -26,18 +26,6 @@ from src.views.organ_ledger import render_organ_ledger_view
 from src.views.settings import render_settings_view
 from src.views.vital_trends import render_vital_trends_view
 
-# Streamlit Page Configuration
-st.set_page_config(
-    page_title="Health Doc",
-    page_icon="🏥",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# 起動時ディレクトリ・DB初期化
-ensure_directories()
-init_db()
-
 
 @st.cache_data
 def get_db_summary_counts() -> tuple[int, int, int, int]:
@@ -50,79 +38,103 @@ def get_db_summary_counts() -> tuple[int, int, int, int]:
     )
 
 
-# -------------------------------------------------------------
-# ゾーン1: サイドバー (データ管理状況・データ保護バックアップ)
-# -------------------------------------------------------------
-with st.sidebar:
-    st.header("🏥 Health Doc")
-    st.caption("Health Doc v0.1.0")
-    st.divider()
+def main() -> None:
+    """UI Orchestration entry point."""
+    st.set_page_config(
+        page_title="Health Doc",
+        page_icon=":material/health_and_safety:",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
 
-    # データベース状態表示
-    st.subheader("データ管理状況")
-    file_count, vital_count, qualitative_count, imaging_count = get_db_summary_counts()
-    st.write(f"- データベース: **正常稼働** (`{DB_PATH.name}`)")
-    st.write(f"- 登録原本ファイル: **{file_count} 件**")
-    st.write(f"- 登録生化学データ: **{vital_count} 件**")
-    st.write(f"- 登録定性・判定項目: **{qualitative_count} 件**")
-    st.write(f"- 登録精密画像検査: **{imaging_count} 件**")
+    # 起動時ディレクトリ・DB初期化
+    ensure_directories()
+    init_db()
 
-    # 標準バックアップマネージャー (Python-backup-script 準拠)
-    st.divider()
-    st.subheader("データ保護・バックアップ")
+    # -------------------------------------------------------------
+    # ゾーン1: サイドバー (データ管理状況・データ保護バックアップ)
+    # -------------------------------------------------------------
+    with st.sidebar:
+        st.header(":material/health_and_safety: Health Doc")
+        st.caption("Health Doc v0.1.0")
+        st.divider()
 
-    current_dir = str(get_backup_dir())
-    new_dir = st.text_input("保存先フォルダ", value=current_dir, help="Google Drive等のローカル同期先パスを指定可能")
-    if new_dir != current_dir and st.button("保存先パスを更新", use_container_width=True):
-        save_res = set_backup_dir(new_dir)
-        if save_res["success"]:
-            st.success(str(save_res["message"]))
-            st.rerun()
-        else:
-            st.error(str(save_res["message"]))
+        # データベース状態表示
+        st.subheader("データ管理状況")
+        file_count, vital_count, qualitative_count, imaging_count = get_db_summary_counts()
+        st.write(f"- データベース: **正常稼働** (`{DB_PATH.name}`)")
+        st.write(f"- 登録原本ファイル: **{file_count} 件**")
+        st.write(f"- 登録生化学データ: **{vital_count} 件**")
+        st.write(f"- 登録定性・判定項目: **{qualitative_count} 件**")
+        st.write(f"- 登録精密画像検査: **{imaging_count} 件**")
 
-    if st.button("今すぐバックアップを実行", use_container_width=True):
-        with st.spinner("圧縮・整合性検証中..."):
-            res = run_backup(app_name="health_cmms")
-        if res["success"]:
-            st.success(str(res["message"]))
-            st.caption(f"完了日時: {res['timestamp']}")
-            st.caption(f"保存先: {res['destination']}")
-        else:
-            st.error(str(res["message"]))
+        # 標準バックアップマネージャー (Python-backup-script 準拠)
+        st.divider()
+        st.subheader("データ保護・バックアップ")
+        current_dir = str(get_backup_dir())
+
+        new_dir = st.text_input(
+            "保存先フォルダ",
+            value=current_dir,
+            help="Google Drive等のローカル同期先パスを指定可能",
+        )
+        if (
+            new_dir
+            and new_dir != current_dir
+            and st.button("保存先パスを更新", icon=":material/sync:", width="stretch")
+        ):
+            save_res = set_backup_dir(new_dir)
+            if save_res["success"]:
+                st.toast(str(save_res["message"]), icon=":material/check_circle:")
+                st.rerun()
+            else:
+                st.error(str(save_res["message"]))
+
+        if st.button("今すぐバックアップを実行", icon=":material/backup:", width="stretch"):
+            with st.spinner("圧縮・整合性検証中..."):
+                res = run_backup(app_name="health_cmms")
+            if res["success"]:
+                st.toast(str(res["message"]), icon=":material/check_circle:")
+                st.caption(f"完了日時: {res['timestamp']}")
+                st.caption(f"保存先: {res['destination']}")
+            else:
+                st.error(str(res["message"]))
+
+    # -------------------------------------------------------------
+    # ゾーン2 & 3: メインワークスペース (ヘッダー & タブナビゲーション)
+    # -------------------------------------------------------------
+    st.title(":material/health_and_safety: パーソナル健康管理システム")
+    st.caption("定期健康診断（時系列血液検査）と精密画像検査の統合管理・次回受診案内システム")
+
+    tab_dash, tab_trend, tab_ledger, tab_import, tab_files, tab_settings = st.tabs(
+        [
+            "ダッシュボード",
+            "トレンド",
+            "部位別所見",
+            "登録",
+            "ファイル一覧",
+            "設定",
+        ]
+    )
+
+    with tab_dash:
+        render_dashboard_view()
+
+    with tab_trend:
+        render_vital_trends_view()
+
+    with tab_ledger:
+        render_organ_ledger_view()
+
+    with tab_import:
+        render_import_jig_view()
+
+    with tab_files:
+        render_file_registry_view()
+
+    with tab_settings:
+        render_settings_view()
 
 
-# -------------------------------------------------------------
-# ゾーン2 & 3: メインワークスペース (ヘッダー & タブナビゲーション)
-# -------------------------------------------------------------
-st.title("🏥 パーソナル健康管理システム（Health Management System）")
-st.caption("定期健康診断（時系列血液検査）と精密画像検査の統合管理・次回受診案内システム")
-
-tab_dash, tab_trend, tab_ledger, tab_import, tab_files, tab_settings = st.tabs(
-    [
-        "ダッシュボード",
-        "トレンド",
-        "部位別所見",
-        "登録",
-        "ファイル一覧",
-        "設定",
-    ]
-)
-
-with tab_dash:
-    render_dashboard_view()
-
-with tab_trend:
-    render_vital_trends_view()
-
-with tab_ledger:
-    render_organ_ledger_view()
-
-with tab_import:
-    render_import_jig_view()
-
-with tab_files:
-    render_file_registry_view()
-
-with tab_settings:
-    render_settings_view()
+if __name__ == "__main__":
+    main()

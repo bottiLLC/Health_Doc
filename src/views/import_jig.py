@@ -35,7 +35,8 @@ def render_import_jig_view() -> None:
     """View 4: 検査結果の自動取り込み・登録。"""
     st.subheader("検査結果の取り込み・登録")
     st.caption(
-        "健診・検査結果のPDFをアップロードし、Gemini 3.8 Flash（思考レベル: medium）で自動抽出・新旧確認・データベース登録"
+        "健診・検査結果のPDFをアップロードし、"
+        "Gemini 3.8 Flash（思考レベル: medium）で自動抽出・新旧確認・データベース登録"
     )
 
     # 登録完了メッセージの表示
@@ -143,30 +144,34 @@ def render_import_jig_view() -> None:
                     old_date = existing_annual["exam_date"]
                     if cd.exam_date > old_date:
                         st.success(
-                            f"✅ 【人間ドック(胃カメラ、腹部超音波を含む)】既存の前回検査日（**{old_date}**）より新しい受診日（**{cd.exam_date}**）です。"
+                            f"✅ 【人間ドック(胃カメラ、腹部超音波を含む)】既存の前回検査日（**{old_date}**）より"
+                            f"新しい受診日（**{cd.exam_date}**）です。\n\n"
                             f"次回推奨日は新たに 1年後（**{cd.exam_date[:4]}年の同時期**）へ更新されます。"
                         )
                     elif cd.exam_date < old_date:
                         st.info(
-                            f"ℹ️ 【人間ドック(胃カメラ、腹部超音波を含む)】既存の最新検査日（**{old_date}**）より過去の受診記録です。"
+                            f"ℹ️ 【人間ドック(胃カメラ、腹部超音波を含む)】既存の最新検査日（**{old_date}**）より"
+                            "過去の受診記録です。\n\n"
                             f"検査履歴として蓄積されますが、最新の前回検査日（**{old_date}**）は維持されます。"
                         )
                     else:
                         st.warning(
-                            f"⚠️ 【人間ドック(胃カメラ、腹部超音波を含む)】同日（**{cd.exam_date}**）の健診記録が既に存在します。上書き更新されます。"
+                            f"⚠️ 【人間ドック(胃カメラ、腹部超音波を含む)】同日（**{cd.exam_date}**）の健診記録が"
+                            "既に存在します。上書き更新されます。"
                         )
                 else:
                     st.info(
-                        "🆕 【人間ドック(胃カメラ、腹部超音波を含む)】システム初のドック記録として登録されます。次回予定は1年後となります。"
+                        "🆕 【人間ドック(胃カメラ、腹部超音波を含む)】システム初のドック記録として登録されます。"
+                        "次回予定は1年後となります。"
                     )
 
                 metrics_df = pd.DataFrame([m.model_dump() for m in cd.metrics])
-                st.dataframe(metrics_df, use_container_width=True, hide_index=True)
+                st.dataframe(metrics_df, width="stretch", hide_index=True)
 
                 if cd.qualitative_items:
                     st.markdown(f"#### 2. 定性検査・所見・各科判定データ ({len(cd.qualitative_items)} 件)")
                     q_df = pd.DataFrame([q.model_dump() for q in cd.qualitative_items])
-                    st.dataframe(q_df, use_container_width=True, hide_index=True)
+                    st.dataframe(q_df, width="stretch", hide_index=True)
 
             # B. 単一画像検査データ
             if ext_result.imaging_data:
@@ -196,13 +201,17 @@ def render_import_jig_view() -> None:
                     old_due = existing_single["dynamic_next_due"]
                     if im.exam_date > old_exam:
                         st.success(
-                            f"✅ 【{im.modality}（部位: {im.target_region}）】既存の前回検査日（**{old_exam}** / 次回: {old_due}）より新しい検査です。\n\n"
-                            f"→ 今回の受診日（**{im.exam_date}**）を新たな「前回検査日」とし、次回推奨受診日を **{calcd_due}** に更新します。"
+                            f"✅ 【{im.modality}（部位: {im.target_region}）】既存の前回検査日"
+                            f"（**{old_exam}** / 次回: {old_due}）より新しい検査です。\n\n"
+                            f"→ 今回の受診日（**{im.exam_date}**）を新たな「前回検査日」とし、"
+                            f"次回推奨受診日を **{calcd_due}** に更新します。"
                         )
                     elif im.exam_date < old_exam:
                         st.info(
-                            f"ℹ️ 【{im.modality}（部位: {im.target_region}）】既存の最新検査日（**{old_exam}** / 次回: {old_due}）より過去の受診記録です。\n\n"
-                            f"→ 過去履歴として保存されますが、現在のアクティブな前回検査日および次回受診推奨日は最新の記録（**{old_exam}**）が維持されます。"
+                            f"ℹ️ 【{im.modality}（部位: {im.target_region}）】既存の最新検査日"
+                            f"（**{old_exam}** / 次回: {old_due}）より過去の受診記録です。\n\n"
+                            f"→ 過去履歴として保存されますが、現在のアクティブな前回検査日および次回受診推奨日は"
+                            f"最新の記録（**{old_exam}**）が維持されます。"
                         )
                     else:
                         st.warning(f"⚠️ 同日（**{im.exam_date}**）の検査記録が存在します。上書き更新されます。")
@@ -220,8 +229,8 @@ def render_import_jig_view() -> None:
                         emb.exam_date, emb.modality, emb.status_flag, emb.raw_comment, emb.suggested_interval_years
                     )
                     st.write(
-                        f"- **{emb.modality}** ({emb.target_region}) | "
-                        f"所見: {emb.primary_findings} [{emb.status_flag}] | 次回推奨: **{emb_due}** | P.{emb.pdf_page or 1}"
+                        f"- **{emb.modality}** ({emb.target_region}) | 所見: {emb.primary_findings} "
+                        f"[{emb.status_flag}] | 次回推奨: **{emb_due}** | P.{emb.pdf_page or 1}"
                     )
                     # 各内包検査の既存前回検査日との照合
                     existing_emb = fetch_latest_exam_for_modality_or_region(emb.modality, emb.target_region)
@@ -240,7 +249,12 @@ def render_import_jig_view() -> None:
                 help="過去日付の記録を修正・差し替え登録したい場合のみチェックしてください。",
             )
 
-            submit_commit = st.form_submit_button("検査結果をデータベースへ登録・原本保存", type="primary")
+            submit_commit = st.form_submit_button(
+                "検査結果をデータベースへ登録・原本保存",
+                type="primary",
+                icon=":material/save:",
+                width="stretch",
+            )
 
         if submit_commit:
             with st.spinner("データベースへ登録中..."):

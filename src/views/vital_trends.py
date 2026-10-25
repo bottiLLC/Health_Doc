@@ -57,7 +57,9 @@ def render_vital_trends_view() -> None:
     st.subheader("年次血液・健康診断トレンドグラフ & 定性カルテ")
     st.caption("血液・尿・肺機能・身体計測の経年数値推移および聴力・眼底・総合判定の完全トラッキング")
 
-    tab_numeric, tab_qualitative = st.tabs(["📈 数値トレンド推移", "📋 定性検査・総合判定カルテ"])
+    tab_numeric, tab_qualitative = st.tabs(
+        [":material/trending_up: 数値トレンド推移", ":material/assignment: 定性検査・総合判定カルテ"]
+    )
 
     # =========================================================
     # タブ 1: 数値トレンド推移（大分類　小分類 併記対応）
@@ -120,24 +122,26 @@ def render_vital_trends_view() -> None:
                 is_inverse = (
                     "コレステロール" in selected_metric or "ALT" in selected_metric or "HbA1c" in selected_metric
                 )
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric(
-                        label=f"{selected_category}　{selected_metric} 最新値 ({latest_date_str})",
-                        value=f"{latest_val} {unit_str}",
-                        delta=f"{latest_val - float(df.iloc[-2]['val']):.1f} {unit_str}" if len(df) > 1 else None,
-                        delta_color="inverse" if is_inverse else "normal",
-                    )
-                with col2:
-                    ref_min = latest_row["ref_min"]
-                    ref_max = latest_row["ref_max"]
-                    ref_display = (
-                        f"{ref_min if ref_min is not None else '-'} 〜 {ref_max if ref_max is not None else '-'}"
-                    )
-                    st.metric(label="基準値範囲", value=f"{ref_display} {unit_str}")
-                with col3:
-                    grade_val = latest_row["grade"]
-                    st.metric(label="直近判定グレード", value=_format_grade_badge(grade_val))
+                with st.container(border=True):
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric(
+                            label=f"{selected_category}　{selected_metric} 最新値 ({latest_date_str})",
+                            value=f"{latest_val} {unit_str}",
+                            delta=f"{latest_val - float(df.iloc[-2]['val']):.1f} {unit_str}" if len(df) > 1 else None,
+                            delta_color="inverse" if is_inverse else "normal",
+                            border=True,
+                        )
+                    with col2:
+                        ref_min = latest_row["ref_min"]
+                        ref_max = latest_row["ref_max"]
+                        ref_display = (
+                            f"{ref_min if ref_min is not None else '-'} 〜 {ref_max if ref_max is not None else '-'}"
+                        )
+                        st.metric(label="基準値範囲", value=f"{ref_display} {unit_str}", border=True)
+                    with col3:
+                        grade_val = latest_row["grade"]
+                        st.metric(label="直近判定グレード", value=_format_grade_badge(grade_val), border=True)
 
                 st.divider()
 
@@ -183,7 +187,7 @@ def render_vital_trends_view() -> None:
                     layers.append(min_rule)
 
                 final_chart = alt.layer(*layers).properties(height=360)
-                st.altair_chart(final_chart, use_container_width=True)
+                st.altair_chart(final_chart, width="stretch")
 
                 # 3. 履歴テーブル
                 st.subheader("経年検査データ一覧")
@@ -203,7 +207,7 @@ def render_vital_trends_view() -> None:
                         "ref_max": "基準上限",
                     }
                 )
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                st.dataframe(display_df, width="stretch", hide_index=True)
 
     # =========================================================
     # タブ 2: 定性検査・総合判定カルテ（聴力、眼底、尿定性、便潜血、各科判定）
@@ -272,7 +276,7 @@ def render_vital_trends_view() -> None:
                 matrix_rows.append(row_dict)
 
             matrix_df = pd.DataFrame(matrix_rows)
-            st.dataframe(matrix_df, use_container_width=True, hide_index=True)
+            st.dataframe(matrix_df, width="stretch", hide_index=True)
 
         st.divider()
 
@@ -305,4 +309,4 @@ def render_vital_trends_view() -> None:
                 }
             )
             view_df["判定"] = view_df["判定"].apply(_format_grade_badge)
-            st.dataframe(view_df, use_container_width=True, hide_index=True)
+            st.dataframe(view_df, width="stretch", hide_index=True)

@@ -38,7 +38,7 @@ def render_organ_ledger_view() -> None:
     st.divider()
 
     for idx, ev in enumerate(filtered_events):
-        with st.container():
+        with st.container(border=True):
             col_header1, col_header2 = st.columns([3, 1])
             with col_header1:
                 st.markdown(f"### {ev['modality']} （部位: {ev['target_region']}）")
@@ -46,7 +46,7 @@ def render_organ_ledger_view() -> None:
             with col_header2:
                 flag = ev["status_flag"]
                 status_color = "🟢" if flag == "CLEAR" else "🟡" if flag == "BENIGN_STABLE" else "🔴"
-                st.metric(label="判定ステータス", value=f"{status_color} {flag}")
+                st.metric(label="判定ステータス", value=f"{status_color} {flag}", border=True)
 
             # 所見と医師コメント
             col_body1, col_body2 = st.columns([2, 1])
@@ -57,9 +57,9 @@ def render_organ_ledger_view() -> None:
                     st.write("**医師コメント / アドバイス:**")
                     st.text(ev["raw_comment"])
             with col_body2:
-                st.metric(label="次回受診推奨時期", value=ev["dynamic_next_due"])
+                st.metric(label="次回受診推奨時期", value=ev["dynamic_next_due"], border=True)
                 if ev.get("pdf_page"):
-                    st.caption(f"📄 元PDF参照ページ: **P.{ev['pdf_page']}**")
+                    st.caption(f":material/description: 元PDF参照ページ: **P.{ev['pdf_page']}**")
 
                 # PDFダウンロード
                 pdf_path_str = ev.get("pdf_path")
@@ -68,14 +68,14 @@ def render_organ_ledger_view() -> None:
                     if pdf_file.exists():
                         with open(pdf_file, "rb") as f:
                             st.download_button(
-                                label="📥 検査原本PDFを保存",
+                                label="検査原本PDFを保存",
+                                icon=":material/download:",
                                 data=f.read(),
                                 file_name=pdf_file.name,
                                 mime="application/pdf",
                                 key=f"dl_pdf_{idx}_{ev['event_id']}",
                                 type="secondary",
+                                width="stretch",
                             )
                     else:
                         st.caption(f"PDFパス: {pdf_path_str} (未配置)")
-
-            st.divider()

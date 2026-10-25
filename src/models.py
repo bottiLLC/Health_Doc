@@ -114,27 +114,6 @@ STANDARD_METRIC_NAMES: Final[dict[str, list[str]]] = {
 }
 
 
-def normalize_metric_name(raw_name: str) -> str:
-    """生化学メトリクス名の表記ゆれをクランプ辞書に基づき標準キーへ正規化。
-
-    Args:
-        raw_name: PDF等から抽出された生の項目名
-
-    Returns:
-        正規化された標準項目名（辞書に未登録の場合は前後の空白を除去した生名）
-    """
-    clean_target = raw_name.strip()
-    clean_target_upper = clean_target.upper().replace(" ", "").replace("　", "")
-
-    for standard_name, aliases in STANDARD_METRIC_NAMES.items():
-        for alias in aliases:
-            clean_alias = alias.upper().replace(" ", "").replace("　", "")
-            if clean_target_upper == clean_alias or clean_target_upper.startswith(clean_alias):
-                return standard_name
-
-    return clean_target
-
-
 # 生化学大分類標準化クランプ辞書（表記ゆれ吸収用）
 STANDARD_CATEGORY_NAMES: Final[dict[str, list[str]]] = {
     "血液学": ["血液学", "血液学検査", "血液一般", "血算", "血液"],
@@ -149,27 +128,6 @@ STANDARD_CATEGORY_NAMES: Final[dict[str, list[str]]] = {
     "炎症": ["炎症", "免疫・炎症", "血清学", "免疫血清"],
     "尿検査": ["尿検査", "検尿", "尿・便"],
 }
-
-
-def normalize_category_name(raw_name: str) -> str:
-    """生化学大分類名の表記ゆれをクランプ辞書に基づき標準キーへ正規化。
-
-    Args:
-        raw_name: PDF等から抽出された生のカテゴリ名
-
-    Returns:
-        正規化された標準カテゴリ名（辞書に未登録の場合は前後の空白を除去した生名）
-    """
-    clean_target = raw_name.strip()
-    clean_target_upper = clean_target.upper().replace(" ", "").replace("　", "")
-
-    for standard_name, aliases in STANDARD_CATEGORY_NAMES.items():
-        for alias in aliases:
-            clean_alias = alias.upper().replace(" ", "").replace("　", "")
-            if clean_target_upper == clean_alias or clean_target_upper.startswith(clean_alias):
-                return standard_name
-
-    return clean_target
 
 
 class VitalMetricItem(BaseModel):
@@ -191,7 +149,9 @@ class QualitativeCheckupItem(BaseModel):
         description="大分類カテゴリ（例: 聴力, 眼底, 視力, 尿検査, 便潜血, 心臓, 胸部, 診察, 総合判定）"
     )
     item_name: str = Field(
-        description="検査項目名（例: 聴力判定, 1000Hz(右), 眼底所見, Scheie分類, 改変Davis, 尿蛋白, 便潜血1回目, 総合判定）"
+        description=(
+            "検査項目名（例: 聴力判定, 1000Hz(右), 眼底所見, Scheie分類, 改変Davis, 尿蛋白, 便潜血1回目, 総合判定）"
+        )
     )
     finding: str = Field(
         description="所見・定性結果（例: 所見なし, 網膜症なし, (-), 正常, 今回の診察では異常ありません）"
@@ -293,3 +253,50 @@ class RegisteredFileRecord(BaseModel):
     registered_at: str = Field(description="登録日時 (YYYY-MM-DD HH:MM:SS)")
     file_size: int = Field(description="ファイルサイズ (bytes)")
     storage_path: str = Field(description="ディスク保存先パス")
+
+
+# =============================================================================
+# Pure Domain Logic / Normalization Functions
+# =============================================================================
+
+
+def normalize_metric_name(raw_name: str) -> str:
+    """生化学メトリクス名の表記ゆれをクランプ辞書に基づき標準キーへ正規化。
+
+    Args:
+        raw_name: PDF等から抽出された生の項目名
+
+    Returns:
+        正規化された標準項目名（辞書に未登録の場合は前後の空白を除去した生名）
+    """
+    clean_target = raw_name.strip()
+    clean_target_upper = clean_target.upper().replace(" ", "").replace("　", "")
+
+    for standard_name, aliases in STANDARD_METRIC_NAMES.items():
+        for alias in aliases:
+            clean_alias = alias.upper().replace(" ", "").replace("　", "")
+            if clean_target_upper == clean_alias or clean_target_upper.startswith(clean_alias):
+                return standard_name
+
+    return clean_target
+
+
+def normalize_category_name(raw_name: str) -> str:
+    """生化学大分類名の表記ゆれをクランプ辞書に基づき標準キーへ正規化。
+
+    Args:
+        raw_name: PDF等から抽出された生のカテゴリ名
+
+    Returns:
+        正規化された標準カテゴリ名（辞書に未登録の場合は前後の空白を除去した生名）
+    """
+    clean_target = raw_name.strip()
+    clean_target_upper = clean_target.upper().replace(" ", "").replace("　", "")
+
+    for standard_name, aliases in STANDARD_CATEGORY_NAMES.items():
+        for alias in aliases:
+            clean_alias = alias.upper().replace(" ", "").replace("　", "")
+            if clean_target_upper == clean_alias or clean_target_upper.startswith(clean_alias):
+                return standard_name
+
+    return clean_target

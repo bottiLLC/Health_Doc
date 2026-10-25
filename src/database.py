@@ -6,7 +6,10 @@ from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from datetime import date
 from pathlib import Path
-from typing import Any
+from types import MappingProxyType
+from typing import Any, Final
+
+import structlog
 
 from src.config import DB_PATH, PDF_DIR, ensure_directories
 from src.models import (
@@ -22,7 +25,22 @@ from src.models import (
 )
 from src.recall_engine import build_managed_timeline, compute_dynamic_next_due
 
-SCHEMA_TABLES_SQL = """
+logger: Final[structlog.stdlib.BoundLogger] = structlog.get_logger(__name__)
+
+ORGAN_REGION_MAP: Final[MappingProxyType[str, str]] = MappingProxyType({
+    "全大腸": "大腸",
+    "大腸": "大腸",
+    "脳": "脳",
+    "全身": "全身",
+    "胸腹部": "肝臓",
+    "胃": "胃",
+    "上部消化管": "胃",
+    "腹部": "肝臓",
+    "心臓": "心臓",
+    "冠動脈": "心臓",
+})
+
+SCHEMA_TABLES_SQL: Final[str] = """
 CREATE TABLE IF NOT EXISTS registered_files (
     file_id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_name TEXT UNIQUE NOT NULL,
@@ -87,7 +105,7 @@ CREATE TABLE IF NOT EXISTS qualitative_checkup_items (
 );
 """
 
-SCHEMA_INDEXES_SQL = """
+SCHEMA_INDEXES_SQL: Final[str] = """
 CREATE INDEX IF NOT EXISTS idx_reg_files_date 
 ON registered_files(exam_date);
 
@@ -113,7 +131,7 @@ CREATE INDEX IF NOT EXISTS idx_qualitative_items_file_id
 ON qualitative_checkup_items(file_id);
 """
 
-SCHEMA_SQL = SCHEMA_TABLES_SQL + SCHEMA_INDEXES_SQL
+SCHEMA_SQL: Final[str] = SCHEMA_TABLES_SQL + SCHEMA_INDEXES_SQL
 
 
 @contextmanager
@@ -151,7 +169,8 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
                 (norm_cat, cat),
             )
 
-    # 既存の検査モダリティ名の新体系マイグレーション（定期健康診断 -> 人間ドック(胃カメラ、腹部超音波を含む)、大腸内視鏡 -> 大腸カメラ）
+    # 既存の検査モダリティ名の新体系マイグレーション
+    # （定期健康診断 -> 人間ドック(胃カメラ、腹部超音波を含む)、大腸内視鏡 -> 大腸カメラ）
     cursor.execute(
         "SELECT event_id, exam_date, modality, status_flag, raw_comment, dynamic_next_due FROM imaging_events"
     )
@@ -630,20 +649,6 @@ def fetch_latest_exam_for_modality_or_region(
         cursor.execute(query, params)
         row = cursor.fetchone()
         return dict(row) if row else None
-
-
-ORGAN_REGION_MAP: dict[str, str] = {
-    "全大腸": "大腸",
-    "大腸": "大腸",
-    "脳": "脳",
-    "全身": "全身",
-    "胸腹部": "肝臓",
-    "胃": "胃",
-    "上部消化管": "胃",
-    "腹部": "肝臓",
-    "心臓": "心臓",
-    "冠動脈": "心臓",
-}
 
 
 def _execute_rebuild_organ_ledger(conn: sqlite3.Connection) -> None:

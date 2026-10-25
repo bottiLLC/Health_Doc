@@ -21,7 +21,7 @@ def render_file_registry_view() -> None:
 
     # 削除完了メッセージの表示
     if success_msg := st.session_state.pop("file_deletion_success_msg", None):
-        st.success(success_msg)
+        st.toast(success_msg, icon=":material/check_circle:")
 
     registered_files = fetch_all_registered_files()
     if not registered_files:
@@ -51,16 +51,18 @@ def render_file_registry_view() -> None:
                 selected_ids.append(fid)
 
         with c2:
-            st.write(f"📄 **{f_item['file_name']}**")
+            st.write(f":material/description: **{f_item['file_name']}**")
             file_path = Path(str(f_item["storage_path"]))
             if file_path.exists():
                 st.download_button(
-                    label="📥 原本PDF保存",
+                    label="原本PDF保存",
+                    icon=":material/download:",
                     data=file_path.read_bytes(),
                     file_name=file_path.name,
                     mime="application/pdf",
                     key=f"dl_reg_file_{fid}",
                     type="secondary",
+                    width="content",
                 )
             else:
                 st.caption("（ファイル未配置）")
@@ -84,28 +86,23 @@ def render_file_registry_view() -> None:
 
         st.divider()
 
-    # 選択削除アクション
+    # 選択削除アクション（Popover による安全な二段確認）
     if selected_ids:
-        st.warning(f"⚠️ {len(selected_ids)} 件のファイルが選択されています。")
-        col_del1, col_del2 = st.columns([3, 1])
-        with col_del1:
-            st.write(
-                "※ 削除を実行すると、ファイル原本および紐付く全検査データ（生化学値・定性所見・画像記録）が完全に削除され、カルテ元帳が再集計されます。"
+        with st.container(border=True):
+            st.warning(f":material/warning: {len(selected_ids)} 件のファイルが選択されています。")
+            st.caption(
+                "削除を実行すると、原本ファイルおよび紐付く全検査データ（生化学値・定性所見・画像記録）が完全に削除され、カルテ元帳が最新残存状態へ再集約されます。"
             )
-        with col_del2:
-            if st.button("🗑️ 選択ファイルを完全削除", type="primary", use_container_width=True):
-                with st.spinner("自動安全バックアップを作成し、カスケード削除と元帳の再同期を実行中..."):
-                    # 1. 削除直前の自動安全バックアップ
-                    run_backup(app_name="health_cmms_before_delete")
-
-                    # 2. カスケード削除 & 元帳再集約
-                    res = delete_registered_files_cascade(selected_ids)
-
-                    # 3. キャッシュクリアと完了通知
-                    st.cache_data.clear()
+            with st.popover("選択ファイルを完全削除", icon=":material/delete:"):
+                st.error("【注意】この操作は取り消せません。直前に自動安全バックアップが生成されます。")
+                if st.button("完全削除を実行する", type="primary", icon=":material/delete_forever:", width="stretch"):
+                    with st.spinner("自動安全バックアップを作成し、カスケード削除と元帳再同期を実行中..."):
+                        run_backup(app_name="health_cmms_before_delete")
+                        res = delete_registered_files_cascade(selected_ids)
+                        st.cache_data.clear()
                     st.session_state["file_deletion_success_msg"] = (
                         f"ファイル {res['files']} 件および紐付く全検査データ"
                         f"（生化学: {res['vital_metrics']}件, 定性: {res['qualitative_items']}件, "
-                        f"画像: {res['imaging_events']}件）を完全に削除し、カルテ元帳を最新残存状態へ再同期しました。"
+                        f"画像: {res['imaging_events']}件）を完全に削除し、カルテ元帳を再同期しました。"
                     )
                     st.rerun()

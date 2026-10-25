@@ -25,71 +25,20 @@ def _load_dashboard_data() -> tuple[list[ManagedTimelineEntry], list[dict[str, A
     )
 
 
-def render_dashboard_view() -> None:
-    """View 1: 総合健康ダッシュボード（受診ステータス & タイムライン）。"""
-    st.subheader("総合健康ダッシュボード")
-    st.caption("厳格な5大管理項目に基づく直近検査日（前回検査日）と次回推奨受診時期の一覧")
-
-    managed_timeline, all_events, ledger = _load_dashboard_data()
-
-    if not managed_timeline and not all_events and not ledger:
-        st.info("検査データがまだ登録されていません。「検査結果の取り込み・登録」タブからPDFを登録してください。")
-        return
-
-    today = date.today()
-
-    # 1. アラート集計（5大管理項目を基準に集計）
-    critical_count = sum(1 for item in managed_timeline if item.alert_category == "受診期限超過")
-    upcoming_count = sum(1 for item in managed_timeline if item.alert_category == "半年以内に受診推奨")
-    cruising_count = sum(1 for item in managed_timeline if item.alert_category == "受診間隔内 (順調)")
-    waiting_count = sum(1 for item in managed_timeline if item.alert_category == "受診開始待機")
-
-    latest_timeline_data: list[dict[str, Any]] = []
-    for item in managed_timeline:
-        chart_start = item.last_exam_date if item.last_exam_date else today.strftime("%Y-%m-%d")
-        latest_timeline_data.append(
-            {
-                "検査種別": item.modality,
-                "検査部位": item.target_region,
-                "受診医療機関": item.clinic_name,
-                "前回検査日": item.last_exam_date or "未受診",
-                "次回推奨受診日": item.dynamic_next_due,
-                "判定ステータス": item.status_flag,
-                "次回までの日数": item.days_remaining,
-                "状態区分": item.alert_category,
-                "主要所見": item.primary_findings,
-                "_chart_start": chart_start,
-            }
-        )
-
-    # アラート指標カード (5大管理項目)
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric(
-            label="管理対象検査",
-            value=f"{len(MANAGED_INSPECTION_ITEMS)} 種別",
-            help=f"登録済み全検査レコード数: {len(all_events)} 件",
-        )
-    with col2:
-        st.metric(label="受診期限超過", value=f"{critical_count} 件")
-    with col3:
-        st.metric(label="半年以内に受診推奨", value=f"{upcoming_count} 件")
-    with col4:
-        st.metric(label="受診間隔内 (順調)", value=f"{cruising_count} 件")
-    with col5:
-        st.metric(label="受診開始待機 (2028年〜)", value=f"{waiting_count} 件")
-
-    st.divider()
-
-    # 2. 次回検査スケジュール・タイムライン
-    st.subheader("次回検査スケジュール・タイムライン")
-
-    view_mode = st.radio(
+@st.fragment
+def _render_timeline_fragment(
+    latest_timeline_data: list[dict[str, Any]],
+    all_events: list[dict[str, Any]],
+    today: date,
+) -> None:
+    """タイムライン表示切替およびチャート・テーブルの部分再描画コンポーネント。"""
+    view_options = ["5大管理項目の最新受診予定のみ表示（推奨）", "過去の全受診履歴タイムラインを表示"]
+    selected_mode = st.segmented_control(
         "表示対象",
-        options=["5大管理項目の最新受診予定のみ表示（推奨）", "過去の全受診履歴タイムラインを表示"],
-        horizontal=True,
-        index=0,
+        options=view_options,
+        default=view_options[0],
     )
+    view_mode = selected_mode if selected_mode is not None else view_options[0]
 
     if view_mode == "5大管理項目の最新受診予定のみ表示（推奨）":
         active_display_data = latest_timeline_data
@@ -126,7 +75,7 @@ def render_dashboard_view() -> None:
         display_columns = [col for col in df_time.columns if not col.startswith("_")]
         st.dataframe(
             df_time[display_columns],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "次回までの日数": st.column_config.NumberColumn(
@@ -167,7 +116,80 @@ def render_dashboard_view() -> None:
             )
             .properties(height=max(180, len(chart_df) * 35))
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width="stretch")
+
+
+def render_dashboard_view() -> None:
+    """View 1: 総合健康ダッシュボード（受診ステータス & タイムライン）。"""
+    st.subheader("総合健康ダッシュボード")
+    st.caption("厳格な5大管理項目に基づく直近検査日（前回検査日）と次回推奨受診時期の一覧")
+
+    managed_timeline, all_events, ledger = _load_dashboard_data()
+
+    if not managed_timeline and not all_events and not ledger:
+        st.info("検査データがまだ登録されていません。「検査結果の取り込み・登録」タブからPDFを登録してください。")
+        return
+
+    today = date.today()
+
+    # 1. アラート集計（5大管理項目を基準に集計）
+    critical_count = sum(1 for item in managed_timeline if item.alert_category == "受診期限超過")
+    upcoming_count = sum(1 for item in managed_timeline if item.alert_category == "半年以内に受診推奨")
+    cruising_count = sum(1 for item in managed_timeline if item.alert_category == "受診間隔内 (順調)")
+    waiting_count = sum(1 for item in managed_timeline if item.alert_category == "受診開始待機")
+
+    latest_timeline_data: list[dict[str, Any]] = []
+    for item in managed_timeline:
+        chart_start = item.last_exam_date if item.last_exam_date else today.strftime("%Y-%m-%d")
+        latest_timeline_data.append(
+            {
+                "検査種別": item.modality,
+                "検査部位": item.target_region,
+                "受診医療機関": item.clinic_name,
+                "前回検査日": item.last_exam_date or "未受診",
+                "次回推奨受診日": item.dynamic_next_due,
+                "判定ステータス": item.status_flag,
+                "次回までの日数": item.days_remaining,
+                "状態区分": item.alert_category,
+                "主要所見": item.primary_findings,
+                "_chart_start": chart_start,
+            }
+        )
+
+    # アラート指標カード (5大管理項目)
+    with st.container(border=True):
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.metric(
+                label="管理対象検査",
+                value=f"{len(MANAGED_INSPECTION_ITEMS)} 種別",
+                help=f"登録済み全検査レコード数: {len(all_events)} 件",
+                border=True,
+            )
+        with col2:
+            st.metric(label="受診期限超過", value=f"{critical_count} 件", border=True)
+        with col3:
+            st.metric(label="半年以内に受診推奨", value=f"{upcoming_count} 件", border=True)
+        with col4:
+            st.metric(label="受診間隔内 (順調)", value=f"{cruising_count} 件", border=True)
+        with col5:
+            st.metric(label="受診開始待機 (2028年〜)", value=f"{waiting_count} 件", border=True)
+
+    st.divider()
+
+    # 2. 次回検査スケジュール・タイムライン
+    st.subheader("次回検査スケジュール・タイムライン")
+    try:
+        from streamlit.runtime.scriptrunner_utils.script_run_context import get_script_run_ctx
+
+        _ctx = get_script_run_ctx()
+    except Exception:
+        _ctx = None
+
+    if _ctx is None and hasattr(_render_timeline_fragment, "__wrapped__"):
+        _render_timeline_fragment.__wrapped__(latest_timeline_data, all_events, today)
+    else:
+        _render_timeline_fragment(latest_timeline_data, all_events, today)
 
     st.divider()
 
@@ -183,6 +205,6 @@ def render_dashboard_view() -> None:
                 "next_action_due": "次回受診推奨日",
             }
         )
-        st.dataframe(ledger_df, use_container_width=True, hide_index=True)
+        st.dataframe(ledger_df, width="stretch", hide_index=True)
     else:
         st.info("部位別の検査記録はありません。")

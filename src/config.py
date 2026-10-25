@@ -15,7 +15,7 @@ BASE_DIR: Final[Path] = Path(__file__).resolve().parent.parent
 DATA_DIR: Final[Path] = BASE_DIR / "data"
 PDF_DIR: Final[Path] = DATA_DIR / "pdfs"
 DB_PATH: Final[Path] = DATA_DIR / "health_cmms.db"
-SETTINGS_FILE: Path = DATA_DIR / "settings.json"
+SETTINGS_FILE: Final[Path] = DATA_DIR / "settings.json"
 
 
 def ensure_directories() -> None:

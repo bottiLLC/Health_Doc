@@ -132,6 +132,7 @@ def test_dashboard_view_renders_5_managed_items(monkeypatch: pytest.MonkeyPatch)
     """5大管理項目および受診開始待機ステータスを含むダッシュボードが正常に描画されることを検証。"""
     mock_st = MagicMock()
     mock_st.columns.return_value = [MagicMock() for _ in range(5)]
+    mock_st.segmented_control.return_value = "5大管理項目の最新受診予定のみ表示（推奨）"
     mock_st.radio.return_value = "5大管理項目の最新受診予定のみ表示（推奨）"
     monkeypatch.setattr("src.views.dashboard.st", mock_st)
 

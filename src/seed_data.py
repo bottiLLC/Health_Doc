@@ -785,7 +785,10 @@ def load_seed_data(target_path: Path | str | None = None) -> dict[str, int]:
                 clinic_name="青葉台かなざわ内科・内視鏡クリニック",
                 status_flag="CLEAR",
                 primary_findings="回腸末端まで挿入、ポリープなし、外痔核のみ",
-                raw_comment="鎮静剤使用。回腸末端まで挿入。外痔核を認めるがポリープ等の病的病変なし（CLEAR）。次回推奨: 5年後。",
+                raw_comment=(
+                    "鎮静剤使用。回腸末端まで挿入。"
+                    "外痔核を認めるがポリープ等の病的病変なし（CLEAR）。次回推奨: 5年後。"
+                ),
                 pdf_page=1,
                 suggested_interval_years=5.0,
             ),
