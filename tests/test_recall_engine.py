@@ -22,14 +22,14 @@ def test_colonoscopy_recall() -> None:
     )
     assert due_alias == "2031-09-16"
 
-    # WATCH_SHORTENED -> 1年短縮
+    # WATCH_SHORTENED や 1年後コメントがあっても設定間隔（デフォルト5年）が適用される
     due_watch = compute_dynamic_next_due(
         exam_date_str="2026-09-16",
         modality="大腸カメラ",
         status_flag="WATCH_SHORTENED",
         raw_comment="腺腫切除。1年後に再検推奨。",
     )
-    assert due_watch == "2027-09-16"
+    assert due_watch == "2031-09-16"
 
 
 def test_brain_mri_recall() -> None:
@@ -42,14 +42,14 @@ def test_brain_mri_recall() -> None:
     )
     assert due_clear == "2031-04-22"
 
-    # BENIGN_STABLE + 1年後再検コメント -> 1年
+    # BENIGN_STABLE + 1年後再検コメントがあっても設定間隔（デフォルト5年）が適用される
     due_benign_1y = compute_dynamic_next_due(
         exam_date_str="2026-04-22",
         modality="脳MRI/MRA",
         status_flag="BENIGN_STABLE",
         raw_comment="透明中隔腔、ベルガ腔を認めます。1年後の健康診断にて再度チェックしていきましょう。",
     )
-    assert due_benign_1y == "2027-04-22"
+    assert due_benign_1y == "2031-04-22"
 
     # BENIGN_STABLE without 1y comment -> 5年
     due_benign_stable = compute_dynamic_next_due(
@@ -107,6 +107,7 @@ def test_ct_and_gastroscopy_recall() -> None:
 
 
 def test_explicit_suggested_interval_override() -> None:
+    """医師の個別指定年数（suggested_interval_years）によらず設定された受診頻度で管理されることを検証。"""
     due_override = compute_dynamic_next_due(
         exam_date_str="2026-04-22",
         modality="大腸カメラ",
@@ -114,7 +115,7 @@ def test_explicit_suggested_interval_override() -> None:
         raw_comment="",
         suggested_interval_years=3.0,
     )
-    assert due_override == "2029-04-22"
+    assert due_override == "2031-04-22"
 
 
 def test_leap_year_boundary() -> None:
@@ -146,7 +147,7 @@ def test_derive_organ_ledger_update() -> None:
 
 def test_recall_engine_uncovered_branches() -> None:
     """未網羅ブランチ（端数年数、超音波、各モダリティの要精検、未定義部位）を検証。"""
-    due_half = compute_dynamic_next_due("2026-01-01", "大腸カメラ", "CLEAR", suggested_interval_years=1.5)
+    due_half = compute_dynamic_next_due("2026-01-01", "DWIBS", "CLEAR", base_intervals={"DWIBS": 1.5})
     assert due_half.startswith("2027-")
 
     due_echo = compute_dynamic_next_due("2026-05-10", "腹部エコー", "CLEAR")
@@ -159,13 +160,13 @@ def test_recall_engine_uncovered_branches() -> None:
     assert due_other == "2027-05-10"
 
     due_colon_action = compute_dynamic_next_due("2026-05-10", "大腸カメラ", "ACTION_REQUIRED")
-    assert due_colon_action == "2027-05-10"
+    assert due_colon_action == "2031-05-10"
 
     due_brain_action = compute_dynamic_next_due("2026-05-10", "脳MRI/MRA", "ACTION_REQUIRED")
-    assert due_brain_action == "2027-05-10"
+    assert due_brain_action == "2031-05-10"
 
     due_dwibs_action = compute_dynamic_next_due("2026-05-10", "DWIBS", "WATCH_SHORTENED")
-    assert due_dwibs_action == "2027-05-10"
+    assert due_dwibs_action == "2028-05-10"
 
     # 2028年以前の心臓CT
     due_ct_pre2028 = compute_dynamic_next_due("2026-05-10", "胸腹部CT", "ACTION_REQUIRED")
@@ -306,11 +307,11 @@ def test_compute_dynamic_next_due_custom_intervals() -> None:
     )
     assert due_colon == "2033-09-16"
 
-    # 短縮所見がある場合はカスタム設定に関わらず安全優先で1年
+    # 短縮所見がある場合でも設定されたカスタム受診間隔（7年）が維持される
     due_watch = compute_dynamic_next_due(
         exam_date_str="2026-09-16",
         modality="大腸カメラ",
         status_flag="WATCH_SHORTENED",
         base_intervals=custom_intervals,
     )
-    assert due_watch == "2027-09-16"
+    assert due_watch == "2033-09-16"
