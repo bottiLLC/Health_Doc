@@ -277,3 +277,40 @@ def test_build_managed_timeline() -> None:
     assert heart_item.last_exam_date is None
     assert heart_item.dynamic_next_due == "2028-04-01"
     assert heart_item.alert_category == "受診開始待機"
+
+
+def test_compute_dynamic_next_due_custom_intervals() -> None:
+    """カスタム基準インターバルが渡された場合にその年数が次回推奨日に適用されることを検証。"""
+    from src.models import MANAGED_BASE_INTERVALS, ManagedInspectionType
+
+    custom_intervals: dict[ManagedInspectionType, float] = dict(MANAGED_BASE_INTERVALS)
+    custom_intervals["脳MRI/MRA"] = 3.0
+    custom_intervals["大腸カメラ"] = 7.0
+    custom_intervals["DWIBS"] = 1.5
+
+    # 脳MRI/MRA -> 3年
+    due_brain = compute_dynamic_next_due(
+        exam_date_str="2026-04-22",
+        modality="脳MRI/MRA",
+        status_flag="CLEAR",
+        base_intervals=custom_intervals,
+    )
+    assert due_brain == "2029-04-22"
+
+    # 大腸カメラ -> 7年
+    due_colon = compute_dynamic_next_due(
+        exam_date_str="2026-09-16",
+        modality="大腸カメラ",
+        status_flag="CLEAR",
+        base_intervals=custom_intervals,
+    )
+    assert due_colon == "2033-09-16"
+
+    # 短縮所見がある場合はカスタム設定に関わらず安全優先で1年
+    due_watch = compute_dynamic_next_due(
+        exam_date_str="2026-09-16",
+        modality="大腸カメラ",
+        status_flag="WATCH_SHORTENED",
+        base_intervals=custom_intervals,
+    )
+    assert due_watch == "2027-09-16"

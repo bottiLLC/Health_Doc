@@ -193,3 +193,163 @@ def test_dashboard_view_renders_5_managed_items(monkeypatch: pytest.MonkeyPatch)
     mock_st.subheader.assert_any_call("総合健康ダッシュボード")
     mock_st.altair_chart.assert_called_once()
     assert mock_st.metric.call_count == 5
+
+
+def test_render_settings_view_structure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """設定ビューが正常にレンダリングされることを検証。"""
+    import src.config as cfg
+    from src.views.settings import render_settings_view
+
+    test_settings = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", test_settings)
+
+    mock_st = MagicMock()
+    mock_st.columns.side_effect = lambda spec: [MagicMock() for _ in (spec if isinstance(spec, list) else range(spec))]
+    mock_st.text_input.return_value = ""
+    mock_st.number_input.return_value = 1.0
+    mock_st.button.return_value = False
+
+    monkeypatch.setattr("src.views.settings.st", mock_st)
+
+    render_settings_view()
+
+    mock_st.subheader.assert_called_once_with("⚙️ システム・受診間隔設定")
+    assert mock_st.text_input.called
+    assert mock_st.number_input.call_count == 5
+
+
+def test_render_settings_view_save_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """設定ビューからのAPIキー保存アクションを検証。"""
+    import src.config as cfg
+    from src.views.settings import render_settings_view
+
+    test_settings = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", test_settings)
+
+    mock_st = MagicMock()
+    mock_st.columns.side_effect = lambda spec: [MagicMock() for _ in (spec if isinstance(spec, list) else range(spec))]
+    mock_st.text_input.return_value = "AIza_view_test_key"
+    mock_st.number_input.return_value = 1.0
+
+    def button_side_effect(label: str, **kwargs: object) -> bool:
+        return label == "APIキーを保存"
+
+    mock_st.button.side_effect = button_side_effect
+    monkeypatch.setattr("src.views.settings.st", mock_st)
+
+    render_settings_view()
+
+    mock_st.success.assert_called_with("APIキーを保存しました。")
+    mock_st.rerun.assert_called_once()
+    assert cfg.get_gemini_api_key() == "AIza_view_test_key"
+
+
+def test_render_settings_view_save_intervals(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """設定ビューからの受診間隔保存アクションを検証。"""
+    import src.config as cfg
+    from src.views.settings import render_settings_view
+
+    test_settings = tmp_path / "settings.json"
+    test_db = tmp_path / "test_views.db"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", test_settings)
+    monkeypatch.setattr(cfg, "DB_PATH", test_db)
+
+    mock_st = MagicMock()
+    mock_st.columns.side_effect = lambda spec: [MagicMock() for _ in (spec if isinstance(spec, list) else range(spec))]
+    mock_st.text_input.return_value = ""
+    mock_st.number_input.return_value = 3.5
+
+    def button_side_effect(label: str, **kwargs: object) -> bool:
+        return label == "受診間隔設定を保存"
+
+    mock_st.button.side_effect = button_side_effect
+    monkeypatch.setattr("src.views.settings.st", mock_st)
+
+    render_settings_view()
+
+    mock_st.cache_data.clear.assert_called_once()
+    mock_st.rerun.assert_called_once()
+    intervals = cfg.get_managed_intervals()
+    assert intervals["脳MRI/MRA"] == 3.5
+
+
+def test_render_settings_view_delete_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """設定ビューからのAPIキー削除アクションを検証。"""
+    import src.config as cfg
+    from src.views.settings import render_settings_view
+
+    test_settings = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", test_settings)
+    cfg.set_gemini_api_key("key_to_delete")
+
+    mock_st = MagicMock()
+    mock_st.columns.side_effect = lambda spec: [MagicMock() for _ in (spec if isinstance(spec, list) else range(spec))]
+    mock_st.text_input.return_value = "key_to_delete"
+    mock_st.number_input.return_value = 1.0
+
+    def button_side_effect(label: str, **kwargs: object) -> bool:
+        return label == "APIキーを削除"
+
+    mock_st.button.side_effect = button_side_effect
+    monkeypatch.setattr("src.views.settings.st", mock_st)
+
+    render_settings_view()
+
+    mock_st.info.assert_any_call("保存済みAPIキーを削除しました。")
+    mock_st.rerun.assert_called_once()
+    assert cfg.get_gemini_api_key() is None
+
+
+def test_render_settings_view_reset_intervals(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """設定ビューからの出荷時デフォルトリセットアクションを検証。"""
+    import src.config as cfg
+    from src.models import MANAGED_BASE_INTERVALS
+    from src.views.settings import render_settings_view
+
+    test_settings = tmp_path / "settings.json"
+    test_db = tmp_path / "test_views.db"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", test_settings)
+    monkeypatch.setattr(cfg, "DB_PATH", test_db)
+    cfg.set_managed_intervals({"脳MRI/MRA": 2.0})
+
+    mock_st = MagicMock()
+    mock_st.columns.side_effect = lambda spec: [MagicMock() for _ in (spec if isinstance(spec, list) else range(spec))]
+    mock_st.text_input.return_value = ""
+    mock_st.number_input.return_value = 2.0
+
+    def button_side_effect(label: str, **kwargs: object) -> bool:
+        return label == "出荷時デフォルトにリセット"
+
+    mock_st.button.side_effect = button_side_effect
+    monkeypatch.setattr("src.views.settings.st", mock_st)
+
+    render_settings_view()
+
+    mock_st.cache_data.clear.assert_called_once()
+    mock_st.rerun.assert_called_once()
+    intervals = cfg.get_managed_intervals()
+    assert intervals == MANAGED_BASE_INTERVALS
+
+
+def test_render_settings_view_empty_key_warning(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """空文字のキーを保存しようとした場合に警告が表示されることを検証。"""
+    import src.config as cfg
+    from src.views.settings import render_settings_view
+
+    test_settings = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", test_settings)
+
+    mock_st = MagicMock()
+    mock_st.columns.side_effect = lambda spec: [MagicMock() for _ in (spec if isinstance(spec, list) else range(spec))]
+    mock_st.text_input.return_value = "   "
+    mock_st.number_input.return_value = 1.0
+
+    def button_side_effect(label: str, **kwargs: object) -> bool:
+        return label == "APIキーを保存"
+
+    mock_st.button.side_effect = button_side_effect
+    monkeypatch.setattr("src.views.settings.st", mock_st)
+
+    render_settings_view()
+
+    mock_st.warning.assert_called_with("APIキーを入力してください。")

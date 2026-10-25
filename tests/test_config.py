@@ -12,10 +12,13 @@ from src.config import (
     ensure_directories,
     generate_pdf_filename,
     get_gemini_api_key,
+    get_managed_intervals,
     load_settings,
+    reset_managed_intervals,
     sanitize_filename_part,
     save_settings,
     set_gemini_api_key,
+    set_managed_intervals,
 )
 
 
@@ -229,3 +232,65 @@ def test_clear_gemini_api_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
     # すでにキーが存在しない場合のクリアもTrue
     assert clear_gemini_api_key() is True
+
+
+def test_get_managed_intervals_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """設定ファイルが存在しない場合に基準インターバル（MANAGED_BASE_INTERVALS）を返却することを検証。"""
+    import src.config as cfg
+    from src.models import MANAGED_BASE_INTERVALS
+
+    target = tmp_path / "empty_settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    intervals = get_managed_intervals()
+    assert intervals == MANAGED_BASE_INTERVALS
+
+
+def test_get_managed_intervals_custom(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """設定ファイルにカスタム値が保存されている場合に正しくマージ取得されることを検証。"""
+    import src.config as cfg
+
+    target = tmp_path / "custom_intervals_settings.json"
+    target.write_text(
+        json.dumps(
+            {
+                "managed_intervals": {
+                    "脳MRI/MRA": 3.0,
+                    "大腸カメラ": 7.0,
+                    "不正キー": 99.0,
+                    "人間ドック(胃カメラ、腹部超音波を含む)": -1.0,  # 負数は無視される
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    intervals = get_managed_intervals()
+    assert intervals["脳MRI/MRA"] == 3.0
+    assert intervals["大腸カメラ"] == 7.0
+    assert intervals["人間ドック(胃カメラ、腹部超音波を含む)"] == 1.0  # デフォルト維持
+    assert intervals["DWIBS"] == 2.0
+
+
+def test_set_and_reset_managed_intervals(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """受診間隔設定の更新およびデフォルトへのリセットが正常に動作することを検証。"""
+    import src.config as cfg
+    from src.models import MANAGED_BASE_INTERVALS
+
+    target = tmp_path / "intervals_crud_settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    # 1. 更新
+    success = set_managed_intervals({"脳MRI/MRA": 2.5, "大腸カメラ": 3.0})
+    assert success is True
+    updated = get_managed_intervals()
+    assert updated["脳MRI/MRA"] == 2.5
+    assert updated["大腸カメラ"] == 3.0
+    assert updated["DWIBS"] == 2.0
+
+    # 2. リセット
+    reset_success = reset_managed_intervals()
+    assert reset_success is True
+    reverted = get_managed_intervals()
+    assert reverted == MANAGED_BASE_INTERVALS

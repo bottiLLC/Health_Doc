@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any, Final
 
+from src.models import MANAGED_BASE_INTERVALS, ManagedInspectionType
+
 # Root project directory
 BASE_DIR: Final[Path] = Path(__file__).resolve().parent.parent
 
@@ -114,5 +116,37 @@ def clear_gemini_api_key() -> bool:
     settings = load_settings()
     if "gemini_api_key" in settings:
         del settings["gemini_api_key"]
+        return save_settings(settings)
+    return True
+
+
+def get_managed_intervals() -> dict[ManagedInspectionType, float]:
+    """設定ファイルから各検診の受診間隔を読み込み。未設定項目は MANAGED_BASE_INTERVALS へフォールバック。"""
+    settings = load_settings()
+    configured = settings.get("managed_intervals")
+    resolved: dict[ManagedInspectionType, float] = dict(MANAGED_BASE_INTERVALS)
+    if isinstance(configured, dict):
+        for k, v in configured.items():
+            if k in resolved and isinstance(v, (int, float)) and v > 0:
+                resolved[k] = float(v)
+    return resolved
+
+
+def set_managed_intervals(intervals: dict[ManagedInspectionType, float] | dict[str, float]) -> bool:
+    """各検診の受診間隔を data/settings.json の managed_intervals キーに安全に永続化。"""
+    settings = load_settings()
+    current = get_managed_intervals()
+    for k, v in intervals.items():
+        if k in current and isinstance(v, (int, float)) and v > 0:
+            current[k] = float(v)
+    settings["managed_intervals"] = current
+    return save_settings(settings)
+
+
+def reset_managed_intervals() -> bool:
+    """受診間隔設定を初期化し出荷時基準値（MANAGED_BASE_INTERVALS）へ復元。"""
+    settings = load_settings()
+    if "managed_intervals" in settings:
+        del settings["managed_intervals"]
         return save_settings(settings)
     return True

@@ -119,4 +119,5 @@ def test_database_category_migration_for_existing_records() -> None:
 
 def test_file_registry_view_renders_without_crash() -> None:
     """新規独立Viewのrender_file_registry_viewが正常に起動すること。"""
+    init_db()
     render_file_registry_view()

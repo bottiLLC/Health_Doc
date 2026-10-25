@@ -22,7 +22,7 @@ from src.models import (
 )
 from src.recall_engine import build_managed_timeline, compute_dynamic_next_due
 
-SCHEMA_SQL = """
+SCHEMA_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS registered_files (
     file_id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_name TEXT UNIQUE NOT NULL,
@@ -35,9 +35,6 @@ CREATE TABLE IF NOT EXISTS registered_files (
     file_size INTEGER NOT NULL,
     storage_path TEXT NOT NULL
 );
-
-CREATE INDEX IF NOT EXISTS idx_reg_files_date 
-ON registered_files(exam_date);
 
 CREATE TABLE IF NOT EXISTS vital_metrics (
     record_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,12 +49,6 @@ CREATE TABLE IF NOT EXISTS vital_metrics (
     grade TEXT,
     FOREIGN KEY(file_id) REFERENCES registered_files(file_id) ON DELETE CASCADE
 );
-
-CREATE INDEX IF NOT EXISTS idx_vital_metrics_date_metric 
-ON vital_metrics(metric_name, exam_date);
-
-CREATE INDEX IF NOT EXISTS idx_vital_metrics_file_id 
-ON vital_metrics(file_id);
 
 CREATE TABLE IF NOT EXISTS imaging_events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,12 +65,6 @@ CREATE TABLE IF NOT EXISTS imaging_events (
     dynamic_next_due TEXT NOT NULL,
     FOREIGN KEY(file_id) REFERENCES registered_files(file_id) ON DELETE CASCADE
 );
-
-CREATE INDEX IF NOT EXISTS idx_imaging_events_modality 
-ON imaging_events(modality, exam_date);
-
-CREATE INDEX IF NOT EXISTS idx_imaging_events_file_id 
-ON imaging_events(file_id);
 
 CREATE TABLE IF NOT EXISTS organ_status_ledger (
     organ TEXT PRIMARY KEY,
@@ -100,6 +85,23 @@ CREATE TABLE IF NOT EXISTS qualitative_checkup_items (
     is_category_summary INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(file_id) REFERENCES registered_files(file_id) ON DELETE CASCADE
 );
+"""
+
+SCHEMA_INDEXES_SQL = """
+CREATE INDEX IF NOT EXISTS idx_reg_files_date 
+ON registered_files(exam_date);
+
+CREATE INDEX IF NOT EXISTS idx_vital_metrics_date_metric 
+ON vital_metrics(metric_name, exam_date);
+
+CREATE INDEX IF NOT EXISTS idx_vital_metrics_file_id 
+ON vital_metrics(file_id);
+
+CREATE INDEX IF NOT EXISTS idx_imaging_events_modality 
+ON imaging_events(modality, exam_date);
+
+CREATE INDEX IF NOT EXISTS idx_imaging_events_file_id 
+ON imaging_events(file_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qualitative_items_unique 
 ON qualitative_checkup_items(exam_date, category, item_name);
@@ -110,6 +112,8 @@ ON qualitative_checkup_items(category, exam_date);
 CREATE INDEX IF NOT EXISTS idx_qualitative_items_file_id 
 ON qualitative_checkup_items(file_id);
 """
+
+SCHEMA_SQL = SCHEMA_TABLES_SQL + SCHEMA_INDEXES_SQL
 
 
 @contextmanager
@@ -158,7 +162,6 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
         e_date = str(row["exam_date"])
         s_flag = str(row["status_flag"])
         comment = str(row["raw_comment"] or "")
-        current_due = str(row["dynamic_next_due"])
 
         new_mod = raw_mod
         if raw_mod in ("定期健康診断", "人間ドック"):
@@ -166,8 +169,8 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
         elif raw_mod == "大腸内視鏡":
             new_mod = "大腸カメラ"
 
-        new_due = compute_dynamic_next_due(e_date, new_mod, s_flag, comment)
-        if new_mod != raw_mod or new_due != current_due:
+        if new_mod != raw_mod:
+            new_due = compute_dynamic_next_due(e_date, new_mod, s_flag, comment)
             cursor.execute(
                 "UPDATE imaging_events SET modality = ?, dynamic_next_due = ? WHERE event_id = ?",
                 (new_mod, new_due, eid),
@@ -251,8 +254,9 @@ def _sync_initial_registered_files(
 def init_db(target_path: Path | str | None = None) -> None:
     """テーブルDDLを実行しデータベーススキーマおよび初期マイグレーションを実行。"""
     with get_db_connection(target_path) as conn:
-        conn.executescript(SCHEMA_SQL)
+        conn.executescript(SCHEMA_TABLES_SQL)
         _migrate_db(conn)
+        conn.executescript(SCHEMA_INDEXES_SQL)
         _sync_initial_registered_files(conn, target_path)
         conn.commit()
 
@@ -756,3 +760,37 @@ def fetch_organ_ledger(
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM organ_status_ledger ORDER BY next_action_due ASC")
         return [dict(row) for row in cursor.fetchall()]
+
+
+def recompute_all_dynamic_next_dues(target_path: Path | str | None = None) -> int:
+    """設定変更時に全 imaging_events の次回推奨受診日を再計算し、部位別元帳を再構築。"""
+    updated_count = 0
+    with get_db_connection(target_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='imaging_events'")
+        if not cursor.fetchone():
+            return 0
+
+        cursor.execute(
+            "SELECT event_id, exam_date, modality, status_flag, raw_comment, dynamic_next_due FROM imaging_events"
+        )
+        rows = cursor.fetchall()
+        for row in rows:
+            eid = int(row["event_id"])
+            e_date = str(row["exam_date"])
+            mod = str(row["modality"])
+            s_flag = str(row["status_flag"])
+            comment = str(row["raw_comment"] or "")
+            current_due = str(row["dynamic_next_due"])
+
+            new_due = compute_dynamic_next_due(e_date, mod, s_flag, comment)
+            if new_due != current_due:
+                cursor.execute(
+                    "UPDATE imaging_events SET dynamic_next_due = ? WHERE event_id = ?",
+                    (new_due, eid),
+                )
+                updated_count += 1
+
+        _execute_rebuild_organ_ledger(conn)
+        conn.commit()
+    return updated_count

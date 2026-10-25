@@ -37,6 +37,7 @@ def compute_dynamic_next_due(
     status_flag: str,
     raw_comment: str = "",
     suggested_interval_years: float | None = None,
+    base_intervals: dict[ManagedInspectionType, float] | None = None,
 ) -> str:
     """検査所見・医師コメント・モダリティに基づき次回推奨日(YYYY-MM-DD)を動的算出。
 
@@ -46,6 +47,7 @@ def compute_dynamic_next_due(
         status_flag: 所見判定 ('CLEAR', 'BENIGN_STABLE', 'WATCH_SHORTENED', 'ACTION_REQUIRED')
         raw_comment: 医師の所見コメント
         suggested_interval_years: 医師指定の次回インターバル年数（優先）
+        base_intervals: カスタム基準インターバル辞書（未指定時は設定ファイルから取得）
 
     Returns:
         動的に算出された次回推奨日文字列 (YYYY-MM-DD)
@@ -55,31 +57,35 @@ def compute_dynamic_next_due(
     if suggested_interval_years is not None and suggested_interval_years > 0:
         return _add_years(exam_dt, suggested_interval_years).strftime("%Y-%m-%d")
 
+    from src.config import get_managed_intervals
+
+    intervals = base_intervals if base_intervals is not None else get_managed_intervals()
     canonical = MODALITY_CANONICAL_MAP.get(modality.strip(), "人間ドック(胃カメラ、腹部超音波を含む)")
     has_one_year_recall = any(kw in raw_comment for kw in ["1年後", "１年後", "1年", "毎年"])
+    configured_interval = intervals.get(canonical, 1.0)
 
     if canonical == "大腸カメラ":
         if status_flag == "WATCH_SHORTENED" or has_one_year_recall or status_flag == "ACTION_REQUIRED":
             return _add_years(exam_dt, 1.0).strftime("%Y-%m-%d")
-        return _add_years(exam_dt, 5.0).strftime("%Y-%m-%d")
+        return _add_years(exam_dt, configured_interval).strftime("%Y-%m-%d")
 
     if canonical == "脳MRI/MRA":
         if status_flag == "WATCH_SHORTENED" or has_one_year_recall or status_flag == "ACTION_REQUIRED":
             return _add_years(exam_dt, 1.0).strftime("%Y-%m-%d")
-        return _add_years(exam_dt, 5.0).strftime("%Y-%m-%d")
+        return _add_years(exam_dt, configured_interval).strftime("%Y-%m-%d")
 
     if canonical == "DWIBS":
         if status_flag == "CLEAR":
-            return _add_years(exam_dt, 2.0).strftime("%Y-%m-%d")
+            return _add_years(exam_dt, configured_interval).strftime("%Y-%m-%d")
         return _add_years(exam_dt, 1.0).strftime("%Y-%m-%d")
 
     if canonical == "心臓CT":
         if exam_dt.year < 2028:
             return "2028-04-01"
-        return _add_years(exam_dt, 5.0).strftime("%Y-%m-%d")
+        return _add_years(exam_dt, configured_interval).strftime("%Y-%m-%d")
 
     # 人間ドック(胃カメラ、腹部超音波を含む) および内包検査群
-    return _add_years(exam_dt, 1.0).strftime("%Y-%m-%d")
+    return _add_years(exam_dt, configured_interval).strftime("%Y-%m-%d")
 
 
 def build_managed_timeline(

@@ -3,6 +3,8 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from src.database import (
     delete_registered_files_cascade,
     fetch_all_registered_files,
@@ -301,3 +303,45 @@ def test_modality_migration_and_managed_timeline_integration() -> None:
         heart_entry = next(s for s in summary if s.modality == "心臓CT")
         assert heart_entry.alert_category == "受診開始待機"
         assert heart_entry.dynamic_next_due == "2028-04-01"
+
+
+def test_recompute_all_dynamic_next_dues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """受診間隔設定変更に伴う全検査イベントの次回推奨日再計算と元帳同期を検証。"""
+    import src.config as cfg
+    from src.config import set_managed_intervals
+    from src.database import (
+        fetch_all_imaging_events,
+        fetch_organ_ledger,
+        recompute_all_dynamic_next_dues,
+    )
+
+    test_settings = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", test_settings)
+
+    db_path = tmp_path / "test_recompute.db"
+    init_db(db_path)
+
+    im_brain = ImagingEventPayload(
+        exam_date="2026-04-22",
+        modality="脳MRI/MRA",
+        target_region="脳",
+        clinic_name="健診クリニック",
+        status_flag="CLEAR",
+        primary_findings="異常所見なし",
+    )
+    # 初期登録: デフォルト5年 (2031-04-22)
+    insert_imaging_event(im_brain, "2031-04-22", target_path=db_path)
+
+    # 間隔を3年に変更
+    set_managed_intervals({"脳MRI/MRA": 3.0})
+
+    # 再計算
+    updated = recompute_all_dynamic_next_dues(target_path=db_path)
+    assert updated == 1
+
+    events = fetch_all_imaging_events(target_path=db_path)
+    assert events[0]["dynamic_next_due"] == "2029-04-22"
+
+    ledger = fetch_organ_ledger(target_path=db_path)
+    brain_ledger = next(item for item in ledger if item["organ"] == "脳")
+    assert brain_ledger["next_action_due"] == "2029-04-22"
