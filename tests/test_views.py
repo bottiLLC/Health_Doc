@@ -194,6 +194,13 @@ def test_dashboard_view_renders_5_managed_items(monkeypatch: pytest.MonkeyPatch)
     mock_st.altair_chart.assert_called_once()
     assert mock_st.metric.call_count == 5
 
+    subheader_calls = [call.args[0] for call in mock_st.subheader.call_args_list]
+    assert subheader_calls == [
+        "総合健康ダッシュボード",
+        "次回検査スケジュール・タイムライン",
+        "部位別検査記録・健康カルテ",
+    ]
+
 
 def test_render_settings_view_structure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """設定ビューが正常にレンダリングされることを検証。"""

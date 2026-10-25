@@ -81,25 +81,7 @@ def render_dashboard_view() -> None:
 
     st.divider()
 
-    # 2. 部位別健康カルテ (Table C)
-    st.subheader("部位別検査記録・健康カルテ")
-    if ledger:
-        ledger_df = pd.DataFrame(ledger)
-        ledger_df = ledger_df.rename(
-            columns={
-                "organ": "対象部位",
-                "last_exam_date": "直近検査日",
-                "current_status": "直近の検査所見・状態",
-                "next_action_due": "次回受診推奨日",
-            }
-        )
-        st.dataframe(ledger_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("部位別の検査記録はありません。")
-
-    st.divider()
-
-    # 3. 次回検査スケジュール・タイムライン
+    # 2. 次回検査スケジュール・タイムライン
     st.subheader("次回検査スケジュール・タイムライン")
 
     view_mode = st.radio(
@@ -186,3 +168,21 @@ def render_dashboard_view() -> None:
             .properties(height=max(180, len(chart_df) * 35))
         )
         st.altair_chart(chart, use_container_width=True)
+
+    st.divider()
+
+    # 3. 部位別検査記録・健康カルテ (Table C)
+    st.subheader("部位別検査記録・健康カルテ")
+    if ledger:
+        ledger_df = pd.DataFrame(ledger)
+        ledger_df = ledger_df.rename(
+            columns={
+                "organ": "対象部位",
+                "last_exam_date": "直近検査日",
+                "current_status": "直近の検査所見・状態",
+                "next_action_due": "次回受診推奨日",
+            }
+        )
+        st.dataframe(ledger_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("部位別の検査記録はありません。")
