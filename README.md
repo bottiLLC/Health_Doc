@@ -16,7 +16,7 @@
 # 1. 依存関係の同期
 uv sync
 
-# 2. 環境変数の設定 (Gemini API利用時)
+# 2. 環境変数の設定 (任意: UI上の「Gemini API 設定」から data/settings.json への直接保存も可能)
 export GEMINI_API_KEY="your-gemini-api-key"
 
 # 3. アプリケーション起動 (Windowsは run.bat のダブルクリックでも可)
@@ -32,13 +32,14 @@ uv run streamlit run app.py
   - **心臓CT**: 2028年から5年毎（2028年開始境界ロジックによる待機制御）
 - **生化学メトリクス名寄せ・時系列分析**: 表記ゆれクランプ辞書（`STANDARD_METRIC_NAMES`）による名寄せと基準値レンジ破線を伴う経年折れ線チャート。
 - **マルチモーダル医療ドキュメント構造化抽出**: Gemini 3.8 Flash (`thinking_level: medium`) の Structured Outputs により、人間ドックPDFおよび各科画像レポートから検査値を自動抽出。
-- **完全隔離型データ保護 & 整合性検証バックアップ**: `./data` 領域の自動ZIP圧縮、`testzip()` 破損検知、アトミック確定移動ルーチン（`backup_manager.py`）の内蔵。
+- **完全隔離型データ保護 & 整合性検証バックアップ**: `./data` 領域の全ユーザーデータ・全設定ファイル（DB, 原本PDF, API設定, バックアップ先設定）の自動ZIP圧縮、`testzip()` 破損検知、アトミック確定移動ルーチン（`backup_manager.py`）の内蔵。
 
-## Environment Variables
-| 環境変数名 | デフォルト値 / サンプル | 必須 | 説明 |
+## Settings & Environment Variables
+| 設定項目 / 環境変数名 | デフォルト値 / サンプル | 必須 | 説明 |
 | :--- | :--- | :--- | :--- |
-| `GEMINI_API_KEY` | `""` | 任意 (PDF自動抽出時必須) | Google Gemini API キー。`.streamlit/secrets.toml` でも設定可能。 |
-| `BACKUP_DIR` | `./backups` | 任意 | バックアップZIPアーカイブの出力先フォルダパス（Google Drive等の同期パス指定可能）。 |
+| `data/settings.json` (`gemini_api_key`) | `""` | 任意 (PDF自動抽出時推奨) | アプリ内UIから永続設定可能なGoogle Gemini API キー。バックアップ対象に含まれます。 |
+| `GEMINI_API_KEY` | `""` | 任意 (PDF自動抽出時フォールバック) | 環境変数による Google Gemini API キー。`.streamlit/secrets.toml` でも設定可能。 |
+| `BACKUP_DIR` | `./backups` | 任意 | バックアップZIPアーカイブの出力先フォルダパス（UI設定またはGoogle Drive等の同期パス指定可能）。 |
 
 ## Limits & Known Trade-offs
 - **個人健康情報（PHI）のローカル限定管理**: SQLite DB (`./data/health_cmms.db`) および PDF原本は Git 除外され、外部クラウドストレージ同期はローカルディレクトリ連携に限定。

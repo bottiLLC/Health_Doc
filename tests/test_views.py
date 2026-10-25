@@ -121,7 +121,8 @@ def test_import_jig_view_session_state_lifecycle(monkeypatch: pytest.MonkeyPatch
 
     render_import_jig_view()
 
-    mock_st.success.assert_called_once_with("登録完了テスト")
+    mock_st.success.assert_any_call("登録完了テスト")
+    mock_st.success.assert_any_call("✅ Gemini API キーは設定済みです（PDF自動解析利用可能）")
     assert "registration_success_msg" not in fake_session_state
     assert fake_session_state["uploader_key"] == 0
     assert fake_session_state["uploaded_file_hash"] is None

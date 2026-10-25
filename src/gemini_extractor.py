@@ -100,9 +100,7 @@ def extract_health_doc_from_pdf(
                 role="user",
                 parts=[
                     pdf_part,
-                    types.Part.from_text(
-                        text="健康診断・検査レポートPDFから指示に従ってデータを抽出してください。"
-                    ),
+                    types.Part.from_text(text="健康診断・検査レポートPDFから指示に従ってデータを抽出してください。"),
                 ],
             ),
             config=types.GenerateContentConfig(

@@ -1,17 +1,31 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.config import (
+    clear_gemini_api_key,
     ensure_directories,
     generate_pdf_filename,
     get_gemini_api_key,
+    load_settings,
     sanitize_filename_part,
+    save_settings,
+    set_gemini_api_key,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolate_settings_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """テスト実行時に実環境の settings.json に影響を与えないよう一時ディレクトリへ隔離。"""
+    import src.config as cfg
+
+    fake_settings = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", fake_settings)
 
 
 def test_ensure_directories(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -115,3 +129,103 @@ def test_get_gemini_api_key_none(monkeypatch: pytest.MonkeyPatch) -> None:
 
     key = get_gemini_api_key()
     assert key is None
+
+
+def test_load_settings_non_existent() -> None:
+    """settings.json が存在しない場合に空辞書を返却することを検証。"""
+    assert load_settings() == {}
+
+
+def test_load_settings_valid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """settings.json から正しく設定辞書を読み込めることを検証。"""
+    import src.config as cfg
+
+    target = tmp_path / "custom_settings.json"
+    target.write_text(json.dumps({"gemini_api_key": "AIzaTest", "theme": "dark"}), encoding="utf-8")
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    loaded = load_settings()
+    assert loaded == {"gemini_api_key": "AIzaTest", "theme": "dark"}
+
+
+def test_load_settings_corrupted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """破損したJSONファイルが存在する場合に安全に空辞書を返却することを検証。"""
+    import src.config as cfg
+
+    target = tmp_path / "corrupt_settings.json"
+    target.write_text("INVALID_JSON{", encoding="utf-8")
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    assert load_settings() == {}
+
+
+def test_load_settings_non_dict_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """JSONトップレベルが辞書でない（リスト等）の場合に空辞書を返却することを検証。"""
+    import src.config as cfg
+
+    target = tmp_path / "list_settings.json"
+    target.write_text(json.dumps(["item1", "item2"]), encoding="utf-8")
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    assert load_settings() == {}
+
+
+def test_save_settings_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """設定の保存が正常に行われ、ファイルが書き込まれることを検証。"""
+    import src.config as cfg
+
+    target = tmp_path / "sub" / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    success = save_settings({"key": "value"})
+    assert success is True
+    assert target.exists()
+    assert json.loads(target.read_text(encoding="utf-8")) == {"key": "value"}
+
+
+def test_save_settings_oserror() -> None:
+    """保存先作成時にOSErrorが発生した場合にFalseを返却することを検証。"""
+    with patch("pathlib.Path.mkdir", side_effect=OSError("Read-only file system")):
+        assert save_settings({"key": "value"}) is False
+
+
+def test_get_gemini_api_key_from_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """data/settings.json に設定されたAPIキーが正しく取得できることを検証。"""
+    import src.config as cfg
+
+    target = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    set_gemini_api_key("settings_secret_key_123")
+    assert get_gemini_api_key() == "settings_secret_key_123"
+
+
+def test_get_gemini_api_key_settings_precedence_over_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """settings.json のAPIキーが環境変数よりも優先して解決されることを検証。"""
+    import src.config as cfg
+
+    target = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    set_gemini_api_key("settings_key_priority")
+    monkeypatch.setenv("GEMINI_API_KEY", "env_key_fallback")
+
+    assert get_gemini_api_key() == "settings_key_priority"
+
+
+def test_clear_gemini_api_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """APIキーのクリア処理が正しく動作することを検証。"""
+    import src.config as cfg
+
+    target = tmp_path / "settings.json"
+    monkeypatch.setattr(cfg, "SETTINGS_FILE", target)
+
+    set_gemini_api_key("to_be_deleted")
+    assert get_gemini_api_key() == "to_be_deleted"
+
+    success = clear_gemini_api_key()
+    assert success is True
+    assert get_gemini_api_key() is None
+
+    # すでにキーが存在しない場合のクリアもTrue
+    assert clear_gemini_api_key() is True

@@ -8,8 +8,9 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-_CONFIG_FILE = Path("./data/backup_config.json")
-_DEFAULT_BACKUP_DIR = Path("./backups")
+_ROOT_DIR = Path(__file__).resolve().parent
+_CONFIG_FILE = _ROOT_DIR / "data" / "backup_config.json"
+_DEFAULT_BACKUP_DIR = _ROOT_DIR / "backups"
 
 
 def get_backup_dir() -> Path:
@@ -75,8 +76,8 @@ def run_backup(app_name: str = "health_cmms", source_dir: str = "./data") -> dic
 
         with zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
             for file_path in source_path.rglob("*"):
-                # Exclude backup configuration file itself from archive
-                if file_path.is_file() and file_path.resolve() != _CONFIG_FILE.resolve():
+                # Back up all persistent user data, documents, and configuration files
+                if file_path.is_file():
                     zipf.write(file_path, file_path.relative_to(source_path))
 
         # 4. Integrity check (testzip)

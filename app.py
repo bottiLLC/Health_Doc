@@ -11,7 +11,14 @@ if str(_ROOT) not in sys.path:
 import streamlit as st
 
 from backup_manager import get_backup_dir, run_backup, set_backup_dir
-from src.config import DB_PATH, ensure_directories
+from src.config import (
+    DB_PATH,
+    clear_gemini_api_key,
+    ensure_directories,
+    get_gemini_api_key,
+    load_settings,
+    set_gemini_api_key,
+)
 from src.database import (
     fetch_all_imaging_events,
     fetch_all_qualitative_items,
@@ -65,6 +72,51 @@ with st.sidebar:
     st.write(f"- 登録生化学データ: **{vital_count} 件**")
     st.write(f"- 登録定性・判定項目: **{qualitative_count} 件**")
     st.write(f"- 登録精密画像検査: **{imaging_count} 件**")
+
+    # システム設定 (Gemini APIキー)
+    st.divider()
+    st.subheader("Gemini API 設定")
+
+    saved_settings = load_settings()
+    stored_key = saved_settings.get("gemini_api_key")
+    resolved_key = get_gemini_api_key()
+
+    if isinstance(stored_key, str) and stored_key.strip():
+        st.success("設定先: **`data/settings.json`**")
+    elif resolved_key:
+        st.info("設定先: **環境変数 / secrets**")
+    else:
+        st.warning("設定状態: **未設定**")
+
+    api_key_input = st.text_input(
+        "Gemini API キー",
+        value=stored_key if isinstance(stored_key, str) else "",
+        type="password",
+        placeholder="AIza...",
+        help="Google AI Studioで取得したAPIキー。data/settings.jsonに保存され、バックアップ対象に含まれます。",
+    )
+
+    col_save, col_del = st.columns(2)
+    with col_save:
+        if st.button("キーを保存", use_container_width=True, key="btn_save_key"):
+            clean_key = api_key_input.strip()
+            if not clean_key:
+                st.warning("キーを入力してください。")
+            elif set_gemini_api_key(clean_key):
+                st.success("APIキーを保存しました。")
+                st.rerun()
+            else:
+                st.error("設定の保存に失敗しました。")
+
+    with col_del:
+        has_stored_key = bool(isinstance(stored_key, str) and stored_key.strip())
+        if (
+            has_stored_key
+            and st.button("キーを削除", use_container_width=True, key="btn_clear_key")
+            and clear_gemini_api_key()
+        ):
+            st.info("設定済みキーを削除しました。")
+            st.rerun()
 
     # 標準バックアップマネージャー (Python-backup-script 準拠)
     st.divider()

@@ -6,7 +6,12 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from src.config import PDF_DIR, generate_pdf_filename, get_gemini_api_key
+from src.config import (
+    PDF_DIR,
+    generate_pdf_filename,
+    get_gemini_api_key,
+    set_gemini_api_key,
+)
 from src.database import (
     fetch_all_registered_files,
     fetch_latest_exam_for_modality_or_region,
@@ -60,8 +65,12 @@ def render_import_jig_view() -> None:
         )
         if manual_key:
             active_api_key = manual_key.strip()
+            if st.checkbox("このAPIキーを保存 (data/settings.json に永続化)", value=True):
+                set_gemini_api_key(active_api_key)
         else:
-            st.info("💡 PDFの自動解析を実行するには Gemini API キーが必要です。")
+            st.info("💡 PDFの自動解析を実行するには Gemini API キーが必要です（サイドバーからも設定可能）。")
+    else:
+        st.success("✅ Gemini API キーは設定済みです（PDF自動解析利用可能）")
 
     # 3. PDFファイルアップローダー
     uploaded_file = st.file_uploader(

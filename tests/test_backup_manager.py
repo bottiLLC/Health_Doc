@@ -116,12 +116,16 @@ def test_run_backup_destination_mkdir_failure(tmp_path: Path, monkeypatch: pytes
 
 
 def test_run_backup_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """アトミックZIP作成、testzip検証、設定ファイル除外および確定移動の正常系を検証。"""
+    """アトミックZIP作成、testzip検証、設定ファイル包含および確定移動の正常系を検証。"""
     import backup_manager
 
     source_dir = tmp_path / "data"
     source_dir.mkdir()
     (source_dir / "record.txt").write_text("health data", encoding="utf-8")
+    (source_dir / "settings.json").write_text(json.dumps({"gemini_api_key": "test_key"}), encoding="utf-8")
+    sub_dir = source_dir / "pdfs"
+    sub_dir.mkdir()
+    (sub_dir / "doc.pdf").write_bytes(b"%PDF-1.4\n")
 
     fake_config = source_dir / "backup_config.json"
     fake_config.write_text(json.dumps({"backup_dir": str(tmp_path / "backups")}), encoding="utf-8")
@@ -135,13 +139,15 @@ def test_run_backup_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert "バックアップ完了" in str(res["message"])
     assert Path(str(res["destination"])).exists()
 
-    # ZIP内に record.txt は含まれ、backup_config.json は除外されていることを検証
+    # ZIP内に record.txt、backup_config.json、settings.json が漏れなく包含されていることを検証
     import zipfile
 
     with zipfile.ZipFile(str(res["destination"]), "r") as zf:
         namelist = zf.namelist()
         assert "record.txt" in namelist
-        assert "backup_config.json" not in namelist
+        assert "backup_config.json" in namelist
+        assert "settings.json" in namelist
+        assert any("doc.pdf" in p for p in namelist)
 
 
 def test_run_backup_corrupted_zip(tmp_path: Path) -> None:
