@@ -34,7 +34,7 @@ from src.views.vital_trends import render_vital_trends_view
 
 # Streamlit Page Configuration
 st.set_page_config(
-    page_title="パーソナル健康管理システム (Health Management System)",
+    page_title="Health Doc",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -60,8 +60,8 @@ def get_db_summary_counts() -> tuple[int, int, int, int]:
 # ゾーン1: サイドバー (設定・データ保護バックアップ)
 # -------------------------------------------------------------
 with st.sidebar:
-    st.header("🏥 健康管理システム")
-    st.caption("パーソナル健康管理システム v0.1.0")
+    st.header("🏥 Health Doc")
+    st.caption("Health Doc v0.1.0")
     st.divider()
 
     # データベース状態表示

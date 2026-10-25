@@ -151,9 +151,9 @@ def test_dashboard_view_renders_5_managed_items(monkeypatch: pytest.MonkeyPatch)
             modality="脳MRI/MRA",
             target_region="脳",
             last_exam_date="2026-04-22",
-            dynamic_next_due="2029-04-22",
+            dynamic_next_due="2031-04-22",
             status_flag="CLEAR",
-            days_remaining=900,
+            days_remaining=1800,
             alert_category="受診間隔内 (順調)",
         ),
         ManagedTimelineEntry(

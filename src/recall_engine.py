@@ -66,7 +66,7 @@ def compute_dynamic_next_due(
     if canonical == "脳MRI/MRA":
         if status_flag == "WATCH_SHORTENED" or has_one_year_recall or status_flag == "ACTION_REQUIRED":
             return _add_years(exam_dt, 1.0).strftime("%Y-%m-%d")
-        return _add_years(exam_dt, 3.0).strftime("%Y-%m-%d")
+        return _add_years(exam_dt, 5.0).strftime("%Y-%m-%d")
 
     if canonical == "DWIBS":
         if status_flag == "CLEAR":

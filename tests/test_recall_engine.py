@@ -33,14 +33,14 @@ def test_colonoscopy_recall() -> None:
 
 
 def test_brain_mri_recall() -> None:
-    # CLEAR -> 3年
+    # CLEAR -> 5年
     due_clear = compute_dynamic_next_due(
         exam_date_str="2026-04-22",
         modality="脳MRI/MRA",
         status_flag="CLEAR",
         raw_comment="異常所見なし。",
     )
-    assert due_clear == "2029-04-22"
+    assert due_clear == "2031-04-22"
 
     # BENIGN_STABLE + 1年後再検コメント -> 1年
     due_benign_1y = compute_dynamic_next_due(
@@ -51,14 +51,14 @@ def test_brain_mri_recall() -> None:
     )
     assert due_benign_1y == "2027-04-22"
 
-    # BENIGN_STABLE without 1y comment -> 3年
+    # BENIGN_STABLE without 1y comment -> 5年
     due_benign_stable = compute_dynamic_next_due(
         exam_date_str="2026-04-22",
         modality="脳MRI/MRA",
         status_flag="BENIGN_STABLE",
         raw_comment="微小血管性変化。経過観察。",
     )
-    assert due_benign_stable == "2029-04-22"
+    assert due_benign_stable == "2031-04-22"
 
 
 def test_dwibs_recall() -> None:
@@ -222,7 +222,7 @@ def test_build_managed_timeline() -> None:
         {
             "modality": "脳MRI/MRA",
             "exam_date": "2026-04-22",
-            "dynamic_next_due": "2029-04-22",
+            "dynamic_next_due": "2031-04-22",
             "status_flag": "BENIGN_STABLE",
             "target_region": "脳",
             "clinic_name": "medock",

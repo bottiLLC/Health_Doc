@@ -60,7 +60,7 @@ MODALITY_CANONICAL_MAP: Final[dict[str, ManagedInspectionType]] = {
 # 基準インターバル定義（年）
 MANAGED_BASE_INTERVALS: Final[dict[ManagedInspectionType, float]] = {
     "人間ドック(胃カメラ、腹部超音波を含む)": 1.0,
-    "脳MRI/MRA": 3.0,
+    "脳MRI/MRA": 5.0,
     "大腸カメラ": 5.0,
     "DWIBS": 2.0,
     "心臓CT": 5.0,
